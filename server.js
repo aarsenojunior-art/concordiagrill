@@ -122,6 +122,19 @@ app.post('/api/admin/config', authenticateAdmin, async (req, res) => {
   res.json({ success: true });
 });
 
+app.get('/api/admin/orders', authenticateAdmin, async (req, res) => {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    console.error('Error fetching orders:', error);
+    return res.status(500).json({ error: 'Erro ao buscar pedidos' });
+  }
+  res.json(data || []);
+});
+
 // Helper for cart calculations
 function buildCheckoutItems(packageCode, guests, selectedExtras) {
   const selectedPackage = packages[packageCode];
