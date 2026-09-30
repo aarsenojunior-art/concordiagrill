@@ -15,7 +15,7 @@ export const PackagesCatalog: React.FC<PackagesCatalogProps> = ({
   onAddToCart,
   selectedPackageId,
 }) => {
-  const [activeFilter, setActiveFilter] = useState<'all' | 'aniversarios' | 'confraternizacoes' | 'casamentos'>('all');
+  const [activeFilter, setActiveFilter] = useState<'all' | 'aniversario' | 'casamento' | '15anos' | 'outros'>('all');
 
   const filteredPackages = PACKAGES.filter((pkg) => {
     if (activeFilter === 'all') return true;

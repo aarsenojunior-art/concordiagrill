@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS public.orders (
 );
 
 -- Additive columns allow safe upgrades if an orders table already exists.
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS gateway_payment_link_id TEXT;
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS gateway_charge_id TEXT;
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS payment_method TEXT;
 ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS pix_qr_code TEXT;
@@ -40,7 +41,7 @@ ALTER TABLE public.payment_events ADD COLUMN IF NOT EXISTS processed_at TIMESTAM
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payment_events ENABLE ROW LEVEL SECURITY;
 
--- Remove all existing policies, including any permissive policy not created by this migration.
+-- Remove all existing policies, including permissive policies from earlier setups.
 DO $migration$
 DECLARE
     policy_row RECORD;
@@ -76,7 +77,7 @@ CREATE TRIGGER set_orders_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION public.handle_updated_at();
 
--- Atomically records each event and updates its order. A retry after any SQL error
+-- Atomically records each event and updates its order. A retry after a SQL error
 -- rolls back both writes, so a later delivery can safely retry the full operation.
 CREATE OR REPLACE FUNCTION public.apply_pagarme_event(
     p_order_id UUID,
@@ -84,6 +85,8 @@ CREATE OR REPLACE FUNCTION public.apply_pagarme_event(
     p_event_type TEXT,
     p_payload JSONB,
     p_status TEXT,
+    p_gateway_order_id TEXT,
+    p_gateway_payment_link_id TEXT,
     p_charge_id TEXT,
     p_payment_method TEXT,
     p_pix_qr_code TEXT,
@@ -130,6 +133,8 @@ BEGIN
                WHEN p_status IN ('pending', 'failed', 'canceled') THEN p_status
                ELSE current_status
            END,
+           gateway_order_id = COALESCE(p_gateway_order_id, gateway_order_id),
+           gateway_payment_link_id = COALESCE(p_gateway_payment_link_id, gateway_payment_link_id),
            gateway_charge_id = COALESCE(p_charge_id, gateway_charge_id),
            payment_method = COALESCE(p_payment_method, payment_method),
            pix_qr_code = COALESCE(p_pix_qr_code, pix_qr_code),
@@ -141,5 +146,5 @@ BEGIN
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION public.apply_pagarme_event(UUID, TEXT, TEXT, JSONB, TEXT, TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.apply_pagarme_event(UUID, TEXT, TEXT, JSONB, TEXT, TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ) TO service_role;
+REVOKE ALL ON FUNCTION public.apply_pagarme_event(UUID, TEXT, TEXT, JSONB, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.apply_pagarme_event(UUID, TEXT, TEXT, JSONB, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, TIMESTAMPTZ) TO service_role;

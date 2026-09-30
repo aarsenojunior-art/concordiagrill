@@ -221,7 +221,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                         <span className="text-sm font-bold text-amber-600 shrink-0 font-sans tabular-nums bg-white px-2.5 py-1 rounded-md border border-amber-100 shadow-sm">
                           {extra.fixedPrice
                             ? `+ ${formatBRL(extra.fixedPrice)}`
-                            : `+ ${formatBRL(extra.pricePerPerson)}/p`}
+                            : `+ ${formatBRL(extra.pricePerPerson || 0)}/p`}
                         </span>
                       </label>
                     );

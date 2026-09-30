@@ -144,21 +144,21 @@ export const EventSimulator: React.FC<EventSimulatorProps> = ({
                 className="w-full h-12 px-4 rounded-none bg-gray-100 text-gray-900 text-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-[#e03131] transition-all cursor-pointer font-medium"
               >
                 <optgroup label="Aniversários &amp; Festas de 15 Anos">
-                  {PACKAGES.filter((p) => p.category === 'aniversarios').map((pkg) => (
+                  {PACKAGES.filter((p) => p.category === 'aniversario' || p.category === '15anos').map((pkg) => (
                     <option key={pkg.id} value={pkg.id}>
                       {pkg.code} — {pkg.name} ({pkg.tag} | sugerido {pkg.people} pessoas)
                     </option>
                   ))}
                 </optgroup>
-                <optgroup label="Confraternizações">
-                  {PACKAGES.filter((p) => p.category === 'confraternizacoes').map((pkg) => (
+                <optgroup label="Outros (Confraternizações)">
+                  {PACKAGES.filter((p) => p.category === 'outros').map((pkg) => (
                     <option key={pkg.id} value={pkg.id}>
                       {pkg.code} — {pkg.name} ({pkg.tag} | sugerido {pkg.people} pessoas)
                     </option>
                   ))}
                 </optgroup>
                 <optgroup label="Casamentos">
-                  {PACKAGES.filter((p) => p.category === 'casamentos').map((pkg) => (
+                  {PACKAGES.filter((p) => p.category === 'casamento').map((pkg) => (
                     <option key={pkg.id} value={pkg.id}>
                       {pkg.code} — {pkg.name} ({pkg.tag} | sugerido {pkg.people} pessoas)
                     </option>

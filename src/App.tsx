@@ -16,6 +16,9 @@ import { GatewayModal } from './components/GatewayModal';
 import { CartDrawer, CartItem } from './components/CartDrawer';
 import { Footer } from './components/Footer';
 import { PACKAGES, PackageItem } from './data/packages';
+import { AdminLogin } from './components/AdminLogin';
+import { AdminDashboard } from './components/AdminDashboard';
+import { supabase } from './lib/supabase';
 
 export default function App() {
   const [selectedPackageId, setSelectedPackageId] = useState<string>('CG03');
@@ -29,7 +32,7 @@ export default function App() {
   // Cart state
   const [cartItem, setCartItem] = useState<CartItem | null>(null);
   const [termsConfirmed, setTermsConfirmed] = useState<boolean>(false);
-  const [currentRoute, setCurrentRoute] = useState<'home' | 'product' | 'cart' | 'checkout'>('home');
+  const [currentRoute, setCurrentRoute] = useState<'home' | 'product' | 'cart' | 'checkout' | 'admin-login' | 'admin'>('home');
 
   const [activeProposalDetails, setActiveProposalDetails] = useState<{
     packageCode: string;
@@ -55,6 +58,10 @@ export default function App() {
         setCurrentRoute('cart');
       } else if (hash.startsWith('#checkout')) {
         setCurrentRoute('checkout');
+      } else if (hash.startsWith('#admin/login')) {
+        setCurrentRoute('admin-login');
+      } else if (hash.startsWith('#admin')) {
+        setCurrentRoute('admin');
       } else if (!hash || hash === '#' || hash === '#home' || hash === '#pacotes' || hash === '#meu-evento' || hash === '#como-funciona' || hash === '#contato') {
         setCurrentRoute('home');
         setViewingProduct(null);
@@ -63,6 +70,16 @@ export default function App() {
 
     handleHashChange();
     window.addEventListener('hashchange', handleHashChange);
+    
+    // Check auth state
+    supabase.auth.onAuthStateChange((event, session) => {
+      if (session && window.location.hash.startsWith('#admin/login')) {
+        window.location.hash = '#admin';
+      } else if (!session && window.location.hash.startsWith('#admin') && window.location.hash !== '#admin/login') {
+        window.location.hash = '#admin/login';
+      }
+    });
+
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
@@ -193,7 +210,11 @@ export default function App() {
       />
 
       <main className="w-full flex-1">
-        {currentRoute === 'cart' ? (
+        {currentRoute === 'admin-login' ? (
+          <AdminLogin onLoginSuccess={() => window.location.hash = 'admin'} />
+        ) : currentRoute === 'admin' ? (
+          <AdminDashboard onLogout={() => window.location.hash = 'admin/login'} />
+        ) : currentRoute === 'cart' ? (
           <CartDrawer
             isOpen={true}
             onClose={() => window.location.hash = 'pacotes'}
