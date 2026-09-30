@@ -58,10 +58,10 @@ export default function App() {
         setCurrentRoute('cart');
       } else if (hash.startsWith('#checkout')) {
         setCurrentRoute('checkout');
-      } else if (hash.startsWith('#admin/login')) {
-        setCurrentRoute('admin-login');
-      } else if (hash.startsWith('#admin')) {
+      } else if (hash.startsWith('#paineladm/dashboard')) {
         setCurrentRoute('admin');
+      } else if (hash.startsWith('#paineladm')) {
+        setCurrentRoute('admin-login');
       } else if (!hash || hash === '#' || hash === '#home' || hash === '#pacotes' || hash === '#meu-evento' || hash === '#como-funciona' || hash === '#contato') {
         setCurrentRoute('home');
         setViewingProduct(null);
@@ -73,10 +73,10 @@ export default function App() {
     
     // Check auth state
     supabase.auth.onAuthStateChange((event, session) => {
-      if (session && window.location.hash.startsWith('#admin/login')) {
-        window.location.hash = '#admin';
-      } else if (!session && window.location.hash.startsWith('#admin') && window.location.hash !== '#admin/login') {
-        window.location.hash = '#admin/login';
+      if (session && window.location.hash === '#paineladm') {
+        window.location.hash = '#paineladm/dashboard';
+      } else if (!session && window.location.hash.startsWith('#paineladm/dashboard')) {
+        window.location.hash = '#paineladm';
       }
     });
 
@@ -215,9 +215,9 @@ export default function App() {
 
       <main className="w-full flex-1">
         {currentRoute === 'admin-login' ? (
-          <AdminLogin onLoginSuccess={() => window.location.hash = 'admin'} />
+          <AdminLogin onLoginSuccess={() => window.location.hash = 'paineladm/dashboard'} />
         ) : currentRoute === 'admin' ? (
-          <AdminDashboard onLogout={() => window.location.hash = 'admin/login'} />
+          <AdminDashboard onLogout={() => window.location.hash = 'paineladm'} />
         ) : currentRoute === 'cart' ? (
           <CartDrawer
             isOpen={true}
