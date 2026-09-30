@@ -18,7 +18,7 @@ const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!supabaseUrl || !supabaseKey) {
   console.warn('WARNING: Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.');
 }
-const supabase = createClient(supabaseUrl || '', supabaseKey || '');
+const supabase = createClient(supabaseUrl || 'https://xyz.supabase.co', supabaseKey || 'dummy');
 
 // Crypto Settings
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY; // Must be 32 bytes (256 bits) for AES-256-GCM
@@ -255,6 +255,16 @@ app.get('/api/order-status', async (req, res) => {
 });
 
 app.post('/api/webhook', async (req, res) => {
+  // Pagar.me V5 Webhook Authentication (via Basic Auth configured in the dashboard)
+  const webhookSecret = process.env.WEBHOOK_SECRET;
+  if (webhookSecret) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || authHeader !== `Basic ${Buffer.from(`${webhookSecret}:`).toString('base64')}`) {
+      console.error('Webhook auth failed.');
+      return res.status(401).send('Unauthorized');
+    }
+  }
+
   const payload = req.body;
   if (!payload || !payload.id || !payload.type) return res.status(400).send('Invalid');
 
