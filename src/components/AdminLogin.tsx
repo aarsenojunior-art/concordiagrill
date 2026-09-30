@@ -14,16 +14,49 @@ export function AdminLogin({ onLoginSuccess }: { onLoginSuccess: () => void }) {
     setLoading(true);
     setError('');
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const normalizedEmail = email.trim().toLowerCase();
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password,
+      });
 
-    if (signInError) {
-      setError('Credenciais inválidas ou sem acesso.');
-      setLoading(false);
-    } else {
+      if (signInError || !data.session) {
+        const message = signInError?.message.toLowerCase() || '';
+
+        if (message.includes('invalid login credentials')) {
+          setError('E-mail ou senha incorretos.');
+        } else if (message.includes('invalid api key') || message.includes('apikey')) {
+          setError('A configuração do login está inválida. Entre em contato com o suporte.');
+        } else {
+          setError('Não foi possível validar o acesso. Tente novamente.');
+        }
+        return;
+      }
+
+      // Confirm the authenticated account is registered as an administrator.
+      const accessResponse = await fetch('/api/admin/config', {
+        headers: {
+          Authorization: `Bearer ${data.session.access_token}`,
+        },
+      });
+
+      if (!accessResponse.ok) {
+        await supabase.auth.signOut();
+        setError(
+          accessResponse.status === 403
+            ? 'Este usuário não possui acesso administrativo.'
+            : 'Não foi possível confirmar o acesso administrativo.'
+        );
+        return;
+      }
+
       onLoginSuccess();
+    } catch (loginError) {
+      console.error('Admin login failed:', loginError);
+      setError('Não foi possível conectar ao serviço de login. Tente novamente.');
+    } finally {
+      setLoading(false);
     }
   };
 
