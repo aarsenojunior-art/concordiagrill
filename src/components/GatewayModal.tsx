@@ -171,10 +171,9 @@ export const GatewayModal: React.FC<GatewayModalProps> = ({
                       {orderStatus.status === 'failed' && <span className="text-red-600">Pagamento Recusado</span>}
                       {orderStatus.status === 'canceled' && <span className="text-gray-600">Pedido Cancelado</span>}
                     </div>
-                    {orderStatus.status === 'pending' && orderStatus.paymentMethod === 'pix' && orderStatus.pix?.qr_code && (
+                    {orderStatus.status === 'pending' && orderStatus.paymentMethod === 'pix' && (
                        <div className="mt-4 p-4 border border-gray-200 rounded-lg bg-gray-50 flex flex-col items-center">
-                          <p className="text-sm text-gray-700 mb-2">Pague via PIX Copia e Cola:</p>
-                          <textarea readOnly value={orderStatus.pix.qr_code} className="w-full text-xs p-2 border rounded resize-none" rows={3} />
+                          <p className="text-sm text-gray-700 text-center">Complete o pagamento via PIX na aba da Pagar.me que foi aberta.</p>
                        </div>
                     )}
                   </div>
