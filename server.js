@@ -45,22 +45,8 @@ function fallbackPriceRecords() {
   );
 }
 
-async function getPackagePriceRecords() {
-  const { data, error } = await supabase
-    .from('package_prices')
-    .select('package_code, guests, price_cents')
-    .eq('active', true)
-    .order('package_code')
-    .order('guests');
-  if (error || !data?.length) {
-    if (error) console.warn('Using fallback package prices:', error.message);
-    return fallbackPriceRecords();
-  }
-  return data.map((row) => ({ packageCode: row.package_code, guests: row.guests, priceCents: row.price_cents }));
-}
-
-async function resolvePackagePrice(packageCode, guests) {
-  const records = await getPackagePriceRecords();
+function resolvePackagePrice(packageCode, guests) {
+  const records = fallbackPriceRecords();
   return records.find((record) => record.packageCode === packageCode && record.guests === guests) || null;
 }
 
@@ -99,40 +85,6 @@ async function authenticateAdmin(req, res, next) {
   req.admin = admin;
   next();
 }
-
-app.get('/api/package-prices', async (_req, res) => {
-  const records = await getPackagePriceRecords();
-  res.setHeader('Cache-Control', 'no-store');
-  res.json(records);
-});
-
-app.get('/api/admin/package-prices', authenticateAdmin, async (_req, res) => {
-  res.json(await getPackagePriceRecords());
-});
-
-app.put('/api/admin/package-prices', authenticateAdmin, async (req, res) => {
-  const records = Array.isArray(req.body?.prices) ? req.body.prices : [];
-  const expectedKeys = fallbackPriceRecords().map((item) => `${item.packageCode}:${item.guests}`);
-  const receivedKeys = records.map((item) => `${String(item.packageCode || '').toUpperCase()}:${Number(item.guests)}`);
-  if (records.length !== expectedKeys.length || expectedKeys.some((key) => !receivedKeys.includes(key))) {
-    return res.status(400).json({ error: 'Envie os preços de 50, 100 e 150 pessoas para todos os pacotes.' });
-  }
-  const rows = records.map((item) => ({
-    package_code: String(item.packageCode).toUpperCase(),
-    guests: Number(item.guests),
-    price_cents: Number(item.priceCents),
-    active: true,
-  }));
-  if (rows.some((row) => !packages[row.package_code] || !allowedGuestCounts.has(row.guests) || !Number.isInteger(row.price_cents) || row.price_cents <= 0)) {
-    return res.status(400).json({ error: 'Há preços ou quantidades inválidos.' });
-  }
-  const { error } = await supabase.from('package_prices').upsert(rows, { onConflict: 'package_code,guests' });
-  if (error) {
-    console.error('Package price update error:', error);
-    return res.status(500).json({ error: 'Não foi possível salvar os preços.' });
-  }
-  res.json({ success: true, prices: await getPackagePriceRecords() });
-});
 
 // Admin Config Endpoints
 app.get('/api/admin/config', authenticateAdmin, async (req, res) => {
@@ -240,7 +192,7 @@ app.post('/api/checkout', async (req, res) => {
   if (!packages[packageCode]) return res.status(400).json({ error: 'Pacote inválido.' });
   if (!Number.isInteger(guests) || !allowedGuestCounts.has(guests)) return res.status(400).json({ error: 'Quantidade de convidados inválida.' });
 
-  const selectedPrice = await resolvePackagePrice(packageCode, guests);
+  const selectedPrice = resolvePackagePrice(packageCode, guests);
   if (!selectedPrice) return res.status(400).json({ error: 'Preço não configurado para este pacote e quantidade.' });
 
   // Load config

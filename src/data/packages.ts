@@ -1,36 +1,16 @@
 import { PACKAGE_PRICE_CENTS } from '../../package-prices.js';
 
-/** Dados editoriais dos produtos. Os preços vêm da tabela package_prices,
- * com fallback único compartilhado em package-prices.js. */
+/** Dados editoriais dos produtos. Os preços ficam no arquivo central package-prices.js. */
 
 export interface PurchaseOption {
   guests: number;
   price: number;
 }
 
-export interface PackagePriceRecord {
-  packageCode: string;
-  guests: number;
-  priceCents: number;
-}
-
 export const ALLOWED_GUEST_COUNTS = [50, 100, 150] as const;
 
 export const formatBRL = (value: number): string =>
   value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
-export const applyPackagePrices = (
-  packages: PackageItem[],
-  records: PackagePriceRecord[],
-): PackageItem[] => packages.map((pkg) => ({
-  ...pkg,
-  purchaseOptions: pkg.purchaseOptions.map((option) => {
-    const record = records.find(
-      (item) => item.packageCode === pkg.code && item.guests === option.guests,
-    );
-    return record ? { ...option, price: record.priceCents / 100 } : option;
-  }),
-}));
 
 export interface PackageItem {
   id: string;

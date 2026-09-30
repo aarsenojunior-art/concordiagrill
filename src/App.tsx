@@ -9,7 +9,7 @@ import { ProductPage } from './components/ProductPage';
 import { QuoteModal } from './components/QuoteModal';
 import { GatewayModal } from './components/GatewayModal';
 import { Footer } from './components/Footer';
-import { applyPackagePrices, PACKAGES, PackageItem, PackagePriceRecord } from './data/packages';
+import { PACKAGES, PackageItem } from './data/packages';
 import { AdminLogin } from './components/AdminLogin';
 import { AdminDashboard } from './components/AdminDashboard';
 import { supabase } from './lib/supabase';
@@ -17,7 +17,7 @@ import { supabase } from './lib/supabase';
 type Route = 'home' | 'product' | 'checkout' | 'admin-login' | 'admin';
 
 export default function App() {
-  const [packages, setPackages] = useState<PackageItem[]>(PACKAGES);
+  const packages = PACKAGES;
   const [viewingProduct, setViewingProduct] = useState<PackageItem | null>(null);
   const [checkoutSelection, setCheckoutSelection] = useState<{ pkg: PackageItem; guests: number } | null>(null);
   const [eventSelection, setEventSelection] = useState<EventSelection>({ packageCode: 'CG03', guests: 50 });
@@ -26,13 +26,6 @@ export default function App() {
   const [activeProposalDetails, setActiveProposalDetails] = useState<{
     packageCode: string; packageName: string; guests: number; estimatedTotal: string; extras: string[]; termsConfirmed: boolean;
   } | null>(null);
-
-  useEffect(() => {
-    fetch('/api/package-prices')
-      .then((response) => response.ok ? response.json() : Promise.reject(new Error('pricing unavailable')))
-      .then((records: PackagePriceRecord[]) => setPackages(applyPackagePrices(PACKAGES, records)))
-      .catch(() => setPackages(PACKAGES));
-  }, []);
 
   useEffect(() => {
     const handleHashChange = () => {

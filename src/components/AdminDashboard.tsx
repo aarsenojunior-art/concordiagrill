@@ -3,13 +3,7 @@ import { supabase } from '../lib/supabase';
 import { LogOut, Save, Shield, LayoutDashboard, Users, Settings, DollarSign, ShoppingBag, TrendingUp, Search, UserPlus } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-type Tab = 'dashboard' | 'orders' | 'prices' | 'settings' | 'users';
-
-interface PackagePrice {
-  packageCode: string;
-  guests: number;
-  priceCents: number;
-}
+type Tab = 'dashboard' | 'orders' | 'settings' | 'users';
 
 interface Order {
   id: string;
@@ -48,9 +42,6 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
 
   // Data State
   const [orders, setOrders] = useState<Order[]>([]);
-  const [packagePrices, setPackagePrices] = useState<PackagePrice[]>([]);
-  const [savingPrices, setSavingPrices] = useState(false);
-  const [priceMessage, setPriceMessage] = useState({ type: '', text: '' });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -82,9 +73,6 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
         const ordersData = await ordersRes.json();
         setOrders(ordersData);
       }
-
-      const pricesRes = await fetch('/api/admin/package-prices', { headers });
-      if (pricesRes.ok) setPackagePrices(await pricesRes.json());
 
       // Fetch Users
       const usersRes = await fetch('/api/admin/users', { headers });
@@ -163,30 +151,6 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
       setCreatingUser(false);
     }
   };
-
-  const handleSavePrices = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSavingPrices(true);
-    setPriceMessage({ type: '', text: '' });
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return onLogout();
-      const response = await fetch('/api/admin/package-prices', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify({ prices: packagePrices }),
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || 'Erro ao salvar preços');
-      setPackagePrices(data.prices);
-      setPriceMessage({ type: 'success', text: 'Preços atualizados com sucesso.' });
-    } catch (error) {
-      setPriceMessage({ type: 'error', text: error instanceof Error ? error.message : 'Erro ao salvar preços.' });
-    } finally {
-      setSavingPrices(false);
-    }
-  };
-
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -270,13 +234,6 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
           >
             <ShoppingBag className="w-5 h-5" />
             Vendas e Pedidos
-          </button>
-          <button
-            onClick={() => setActiveTab('prices')}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${activeTab === 'prices' ? 'bg-red-600 text-white shadow-lg shadow-red-600/20' : 'hover:bg-zinc-900 hover:text-white'}`}
-          >
-            <DollarSign className="w-5 h-5" />
-            Preços dos Pacotes
           </button>
           <button
             onClick={() => setActiveTab('users')}
@@ -449,42 +406,6 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                   </table>
                 </div>
               </div>
-            </div>
-          )}
-
-          {/* TAB: PRICES */}
-          {activeTab === 'prices' && (
-            <div className="max-w-5xl mx-auto space-y-6 animate-in fade-in duration-500">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Preços dos Pacotes</h2>
-                <p className="text-gray-500 text-sm mt-1">Edite os valores oficiais usados no catálogo, em Meu evento e no checkout.</p>
-              </div>
-              <form onSubmit={handleSavePrices} className="space-y-6">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {[
-                    ['CG02', 'Confraterniza Grill'], ['CG06', 'Casamento Essencial'],
-                    ['CG03', 'Celebração Grill'], ['CG04', '15 Anos Essencial'],
-                  ].map(([code, name]) => (
-                    <div key={code} className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                      <div className="mb-5"><span className="text-xs font-bold text-red-600">{code}</span><h3 className="text-lg font-bold text-gray-900">{name}</h3></div>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        {[50, 100, 150].map((guests) => {
-                          const index = packagePrices.findIndex((item) => item.packageCode === code && item.guests === guests);
-                          const record = packagePrices[index];
-                          return (
-                            <label key={guests} className="text-xs font-semibold text-gray-600">
-                              {guests} pessoas
-                              <div className="relative mt-1"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">R$</span><input type="number" min="1" step="0.01" required value={record ? record.priceCents / 100 : ''} onChange={(event) => setPackagePrices((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, priceCents: Math.round(Number(event.target.value) * 100) } : item))} className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-red-500 outline-none" /></div>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {priceMessage.text && <div className={`p-4 rounded-xl text-sm font-medium ${priceMessage.type === 'error' ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>{priceMessage.text}</div>}
-                <button type="submit" disabled={savingPrices || packagePrices.length !== 12} className="flex items-center gap-2 px-6 py-3 rounded-xl bg-red-600 hover:bg-red-700 disabled:bg-gray-300 text-white font-bold shadow-lg"><Save className="w-4 h-4" />{savingPrices ? 'Salvando...' : 'Salvar todos os preços'}</button>
-              </form>
             </div>
           )}
 

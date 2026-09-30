@@ -1,5 +1,4 @@
-// Fallback único usado pelo frontend e pelo backend quando a tabela do Supabase
-// ainda não estiver disponível. Em produção, package_prices é a fonte oficial.
+// Fonte única de preços do site, compartilhada pelo frontend e pelo backend.
 export const PACKAGE_PRICE_CENTS = {
   CG02: { 50: 700000, 100: 1400000, 150: 2100000 },
   CG06: { 50: 750000, 100: 1500000, 150: 2250000 },
