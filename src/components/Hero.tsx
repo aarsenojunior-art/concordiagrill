@@ -24,8 +24,8 @@ export const Hero: React.FC<HeroProps> = ({ onScrollToPackages }) => {
           
           {/* Overline Tag */}
           <div className="inline-flex items-center gap-3">
-            <span className="w-8 h-[2px] bg-[#e03131]" />
-            <span className="text-xs uppercase tracking-[0.2em] text-[#ffdad6] font-bold">
+            <span className="w-8 h-[2px] bg-[#e03131] shrink-0" />
+            <span className="text-[10px] sm:text-xs uppercase tracking-[0.15em] sm:tracking-[0.2em] text-[#ffdad6] font-bold whitespace-nowrap">
               RESTAURANTE • BUFFET • CELEBRAÇÕES
             </span>
           </div>

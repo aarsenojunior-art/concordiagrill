@@ -56,7 +56,7 @@ export const QuoteModal: React.FC<QuoteModalProps> = ({
       `\nPoderiam verificar a disponibilidade de agenda e os detalhes dos cortes? Obrigado!`
     );
 
-    const link = `https://api.whatsapp.com/send?phone=5511999999999&text=${text}`;
+    const link = `https://api.whatsapp.com/send?phone=5565996068919&text=${text}`;
     setWhatsappLink(link);
     setSubmitted(true);
   };

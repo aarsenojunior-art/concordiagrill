@@ -31,12 +31,28 @@
 @layer base {
   html {
     scroll-behavior: smooth;
+    /* Evita cor de link azul herdada pelo navegador */
+    -webkit-tap-highlight-color: transparent;
   }
   body {
     background-color: #ffffff;
     color: #111827;
     font-family: var(--font-sans);
+    overflow-x: hidden;
   }
+  /* Remove cor azul padrão de links dentro de labels */
+  label a, label span {
+    color: inherit;
+  }
+}
+
+/* Utilitário para ocultar scrollbar */
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
 }
 
 .font-editorial {

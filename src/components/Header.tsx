@@ -1,19 +1,13 @@
 import React, { useState } from 'react';
-import { Menu, X, User, Flame, ShoppingBag } from 'lucide-react';
+import { Menu, X, User, Flame } from 'lucide-react';
 
 interface HeaderProps {
   onOpenQuoteModal: () => void;
-  onSelectPackageNav: () => void;
-  onOpenCart?: () => void;
-  cartCount?: number;
   onNavigateHome?: (hash: string) => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ 
-  onOpenQuoteModal, 
-  onSelectPackageNav,
-  onOpenCart,
-  cartCount = 0,
+export const Header: React.FC<HeaderProps> = ({
+  onOpenQuoteModal,
   onNavigateHome,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -29,17 +23,16 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <div className="fixed top-0 inset-x-0 z-50 flex flex-col">
 
-
-      {/* Main Navigation Bar */}
+      {/* Barra de Navegação Principal */}
       <header className="w-full bg-white/90 backdrop-blur-xl border-b border-gray-200/80 transition-colors duration-300">
         <div className="h-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
-          
-          {/* Brand Logo & Title */}
+
+          {/* Logo */}
           <div className="flex items-center gap-3">
-            <a 
-              href="#" 
+            <a
+              href="#"
               onClick={(e) => handleNavClick(e, '')}
-              aria-label="Concórdia Grill Início" 
+              aria-label="Concórdia Grill Início"
               className="flex items-center gap-3 group focus:outline-none cursor-pointer"
             >
               <img
@@ -50,7 +43,7 @@ export const Header: React.FC<HeaderProps> = ({
             </a>
           </div>
 
-          {/* Desktop Navigation Links */}
+          {/* Navegação Desktop */}
           <nav className="hidden md:flex items-center gap-8 lg:gap-10">
             <a
               href="#"
@@ -89,27 +82,10 @@ export const Header: React.FC<HeaderProps> = ({
             </a>
           </nav>
 
-          {/* Header Action CTAs - Rectangular Buttons */}
+          {/* CTAs do Cabeçalho */}
           <div className="flex items-center gap-2.5 sm:gap-3">
-            {/* Cart Button with Count Badge */}
-            {onOpenCart && (
-              <button
-                type="button"
-                onClick={onOpenCart}
-                className="relative px-4 py-2.5 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-900 flex items-center gap-2 text-xs font-bold transition-all cursor-pointer"
-                title="Abrir Carrinho de Celebração"
-              >
-                <ShoppingBag className="w-4 h-4 text-[#e03131]" />
-                <span className="hidden sm:inline">Carrinho</span>
-                {cartCount > 0 && (
-                  <span className="w-5 h-5 rounded-full bg-[#e03131] text-gray-900 text-[11px] font-bold flex items-center justify-center animate-pulse">
-                    {cartCount}
-                  </span>
-                )}
-              </button>
-            )}
 
-            {/* Concierge / User Quick Button */}
+            {/* Botão de Atendimento / Concierge */}
             <div className="relative hidden sm:block">
               <button
                 type="button"
@@ -122,14 +98,14 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
 
               {conciergeOpen && (
-                <div className="absolute right-0 mt-2 w-72 bg-gray-50 border border-gray-200 rounded-full shadow-2xl p-4 text-xs z-50 animate-in fade-in slide-in-from-top-2">
+                <div className="absolute right-0 mt-2 w-72 bg-gray-50 border border-gray-200 rounded-2xl shadow-2xl p-4 text-xs z-50">
                   <div className="flex items-center gap-2 pb-2 border-b border-gray-200">
                     <div className="w-7 h-7 rounded-full bg-[#af8d11]/20 flex items-center justify-center text-amber-600">
                       <Flame className="w-4 h-4" />
                     </div>
                     <div>
                       <p className="font-bold text-gray-900">Concórdia Eventos</p>
-                      <p className="text-[11px] text-gray-600">Plantão Comercial & Buffet</p>
+                      <p className="text-[11px] text-gray-600">Plantão Comercial &amp; Buffet</p>
                     </div>
                   </div>
                   <div className="py-2.5 space-y-1.5 text-gray-600">
@@ -150,7 +126,7 @@ export const Header: React.FC<HeaderProps> = ({
               )}
             </div>
 
-            {/* Mobile Hamburger Button */}
+            {/* Botão Hamburguer Mobile */}
             <button
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -162,7 +138,7 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Mobile Dropdown Menu */}
+        {/* Menu Mobile */}
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-gray-200 bg-white px-4 py-4 space-y-3">
             <a
@@ -215,26 +191,6 @@ export const Header: React.FC<HeaderProps> = ({
             >
               Contato
             </a>
-            {onOpenCart && (
-              <button
-                type="button"
-                onClick={() => {
-                  setMobileMenuOpen(false);
-                  onOpenCart();
-                }}
-                className="w-full py-2.5 px-3 rounded-full bg-gray-50 text-left text-xs font-bold text-gray-900 flex items-center justify-between cursor-pointer border border-gray-200"
-              >
-                <div className="flex items-center gap-2">
-                  <ShoppingBag className="w-4 h-4 text-[#e03131]" />
-                  <span>Ver Carrinho de Celebração</span>
-                </div>
-                {cartCount > 0 && (
-                  <span className="px-2 py-0.5 rounded-full bg-[#e03131] text-white text-[10px]">
-                    {cartCount} item
-                  </span>
-                )}
-              </button>
-            )}
           </div>
         )}
       </header>

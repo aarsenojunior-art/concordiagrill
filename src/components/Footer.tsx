@@ -122,15 +122,7 @@ export const Footer: React.FC<FooterProps> = ({ onOpenQuoteModal }) => {
                   <span>Validação Direta de Agenda</span>
                 </button>
               </li>
-              <li>
-                <a
-                  href="#carrinho"
-                  className="flex items-center gap-1.5 text-gray-600 hover:text-red-600 transition-colors group"
-                >
-                  <ChevronRight className="w-3.5 h-3.5 text-gray-400 group-hover:text-red-600 transition-colors" />
-                  <span>Resumo do Pedido</span>
-                </a>
-              </li>
+
             </ul>
           </div>
 
@@ -148,10 +140,10 @@ export const Footer: React.FC<FooterProps> = ({ onOpenQuoteModal }) => {
                 <div className="flex flex-col pt-0.5">
                   <span className="text-[11px] text-gray-400 font-medium">E-mail</span>
                   <a
-                    href="mailto:contato@churrascariaconcordiagrill.com.br"
+                    href="mailto:concordia@concordiagrill.com"
                     className="font-semibold text-gray-900 hover:text-red-600 transition-colors break-all"
                   >
-                    contato@churrascariaconcordiagrill.com.br
+                    concordia@concordiagrill.com
                   </a>
                 </div>
               </div>
@@ -177,10 +169,10 @@ export const Footer: React.FC<FooterProps> = ({ onOpenQuoteModal }) => {
                 <div className="flex flex-col pt-0.5">
                   <span className="text-[11px] text-gray-400 font-medium">Telefone</span>
                   <a
-                    href="tel:+5547999012867"
+                    href="tel:+5565996068919"
                     className="font-bold text-gray-900 hover:text-red-600 transition-colors"
                   >
-                    (47) 99901-2867
+                    (65) 99606-8919
                   </a>
                 </div>
               </div>
