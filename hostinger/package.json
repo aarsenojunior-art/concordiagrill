@@ -1,0 +1,13 @@
+{
+  "name": "concordia-grill-hostinger",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "build": "npm ci --prefix .. && npm run build --prefix ..",
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
