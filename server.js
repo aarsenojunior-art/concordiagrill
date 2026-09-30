@@ -135,6 +135,44 @@ app.get('/api/admin/orders', authenticateAdmin, async (req, res) => {
   res.json(data || []);
 });
 
+app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
+  const { data, error } = await supabase.from('admins').select('*').order('created_at', { ascending: false });
+  if (error) return res.status(500).json({ error: 'Erro ao buscar administradores' });
+  res.json(data || []);
+});
+
+app.post('/api/admin/users', authenticateAdmin, async (req, res) => {
+  const { email, password } = req.body;
+  if (!email || !password) return res.status(400).json({ error: 'Email e senha são obrigatórios' });
+
+  // 1. Create user in Supabase Auth using Admin API
+  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+  });
+
+  if (authError) {
+    console.error('Create user error:', authError);
+    return res.status(400).json({ error: authError.message });
+  }
+
+  // 2. Add to admins table
+  const { error: dbError } = await supabase.from('admins').insert({
+    id: authData.user.id,
+    email: authData.user.email
+  });
+
+  if (dbError) {
+    console.error('Insert admin error:', dbError);
+    // Best effort rollback
+    await supabase.auth.admin.deleteUser(authData.user.id);
+    return res.status(500).json({ error: 'Erro ao salvar administrador no banco' });
+  }
+
+  res.json({ success: true, user: { id: authData.user.id, email: authData.user.email } });
+});
+
 // Helper for cart calculations
 function buildCheckoutItems(packageCode, guests, selectedExtras) {
   const selectedPackage = packages[packageCode];

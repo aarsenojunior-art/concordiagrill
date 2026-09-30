@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
-import { LogOut, Save, Shield, LayoutDashboard, Users, Settings, DollarSign, ShoppingBag, TrendingUp, Search } from 'lucide-react';
+import { LogOut, Save, Shield, LayoutDashboard, Users, Settings, DollarSign, ShoppingBag, TrendingUp, Search, UserPlus } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-type Tab = 'dashboard' | 'orders' | 'settings';
+type Tab = 'dashboard' | 'orders' | 'settings' | 'users';
 
 interface Order {
   id: string;
@@ -16,8 +16,15 @@ interface Order {
   created_at: string;
 }
 
+interface AdminUser {
+  id: string;
+  email: string;
+  created_at: string;
+}
+
 export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
   const [activeTab, setActiveTab] = useState<Tab>('dashboard');
+  const [adminEmail, setAdminEmail] = useState('');
   
   // Settings State
   const [environment, setEnvironment] = useState('sandbox');
@@ -26,6 +33,13 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
   
+  // Users State
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
+  const [newAdminEmail, setNewAdminEmail] = useState('');
+  const [newAdminPassword, setNewAdminPassword] = useState('');
+  const [creatingUser, setCreatingUser] = useState(false);
+  const [userMessage, setUserMessage] = useState({ type: '', text: '' });
+
   // Data State
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -38,6 +52,8 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return onLogout();
+
+      setAdminEmail(session.user.email || '');
 
       const headers = { 'Authorization': `Bearer ${session.access_token}` };
 
@@ -57,6 +73,14 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
         const ordersData = await ordersRes.json();
         setOrders(ordersData);
       }
+
+      // Fetch Users
+      const usersRes = await fetch('/api/admin/users', { headers });
+      if (usersRes.ok) {
+        const usersData = await usersRes.json();
+        setAdminUsers(usersData);
+      }
+
     } catch (err) {
       console.error(err);
       setMessage({ type: 'error', text: 'Erro ao carregar dados do servidor.' });
@@ -95,6 +119,40 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
     }
   };
 
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreatingUser(true);
+    setUserMessage({ type: '', text: '' });
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return onLogout();
+
+      const response = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({ email: newAdminEmail, password: newAdminPassword })
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) throw new Error(data.error || 'Erro ao criar usuário');
+
+      setUserMessage({ type: 'success', text: 'Usuário administrador criado com sucesso!' });
+      setNewAdminEmail('');
+      setNewAdminPassword('');
+      fetchData(); 
+    } catch (err: any) {
+      setUserMessage({ type: 'error', text: err.message });
+    } finally {
+      setCreatingUser(false);
+    }
+  };
+
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     onLogout();
@@ -116,7 +174,6 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
     
     // Group by day for chart
     const chartDataMap = new Map<string, number>();
-    // Pre-fill last 7 days
     for (let i = 6; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
@@ -180,6 +237,13 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
             Vendas e Pedidos
           </button>
           <button
+            onClick={() => setActiveTab('users')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${activeTab === 'users' ? 'bg-red-600 text-white shadow-lg shadow-red-600/20' : 'hover:bg-zinc-900 hover:text-white'}`}
+          >
+            <Users className="w-5 h-5" />
+            Usuários Master
+          </button>
+          <button
             onClick={() => setActiveTab('settings')}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl font-medium transition-all ${activeTab === 'settings' ? 'bg-red-600 text-white shadow-lg shadow-red-600/20' : 'hover:bg-zinc-900 hover:text-white'}`}
           >
@@ -191,9 +255,9 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
         <div className="p-4 border-t border-zinc-800">
           <button
             onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-medium text-zinc-400 hover:text-white hover:bg-zinc-900 transition-colors"
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-medium text-red-500 hover:text-white hover:bg-red-600 transition-colors border border-zinc-800 hover:border-transparent"
           >
-            <LogOut className="w-5 h-5" /> Sair do Sistema
+            <LogOut className="w-5 h-5" /> Sair do Painel
           </button>
         </div>
       </aside>
@@ -201,13 +265,20 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Mobile Header */}
-        <header className="md:hidden bg-zinc-950 text-white h-16 flex items-center justify-between px-4">
+        <header className="md:hidden bg-zinc-950 text-white h-16 flex items-center justify-between px-4 shrink-0">
            <div className="flex items-center gap-2">
             <Shield className="h-5 w-5 text-red-500" />
             <span className="font-bold">Admin</span>
           </div>
           <button onClick={handleLogout} className="text-zinc-400"><LogOut className="w-5 h-5"/></button>
         </header>
+
+        {/* Top Header - Welcome Bar */}
+        <div className="bg-white border-b border-gray-200 h-16 px-4 md:px-8 flex items-center justify-between shrink-0 hidden md:flex">
+          <div className="text-gray-500 text-sm">
+            Bem-vindo(a), <span className="font-bold text-gray-900">{adminEmail}</span>
+          </div>
+        </div>
 
         <div className="flex-1 overflow-auto p-4 md:p-8">
           
@@ -221,7 +292,7 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
 
               {/* KPI Cards */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4 hover:-translate-y-1 transition-transform cursor-default">
                   <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center shrink-0">
                     <DollarSign className="w-6 h-6 text-green-600" />
                   </div>
@@ -230,7 +301,7 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                     <h3 className="text-2xl font-bold text-gray-900">{formatBRL(stats.totalRevenueCents)}</h3>
                   </div>
                 </div>
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4 hover:-translate-y-1 transition-transform cursor-default">
                   <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
                     <ShoppingBag className="w-6 h-6 text-blue-600" />
                   </div>
@@ -239,7 +310,7 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                     <h3 className="text-2xl font-bold text-gray-900">{stats.ordersCount}</h3>
                   </div>
                 </div>
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4 hover:-translate-y-1 transition-transform cursor-default">
                   <div className="w-12 h-12 rounded-full bg-purple-50 flex items-center justify-center shrink-0">
                     <TrendingUp className="w-6 h-6 text-purple-600" />
                   </div>
@@ -264,9 +335,9 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" />
                       <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#6b7280', fontSize: 12}} dy={10} />
-                      <YAxis axisLine={false} tickLine={false} tick={{fill: '#6b7280', fontSize: 12}} tickFormatter={(val) => \`R$ \${val}\`} />
+                      <YAxis axisLine={false} tickLine={false} tick={{fill: '#6b7280', fontSize: 12}} tickFormatter={(val) => `R$ ${val}`} />
                       <Tooltip 
-                        formatter={(value: number) => [\`R$ \${value.toFixed(2)}\`, 'Faturamento']}
+                        formatter={(value: number) => [`R$ ${value.toFixed(2)}`, 'Faturamento']}
                         contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                       />
                       <Area type="monotone" dataKey="total" stroke="#e03131" strokeWidth={3} fillOpacity={1} fill="url(#colorTotal)" />
@@ -339,6 +410,87 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
             </div>
           )}
 
+          {/* TAB: USERS */}
+          {activeTab === 'users' && (
+            <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-500">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 tracking-tight">Usuários Master</h2>
+                <p className="text-gray-500 text-sm mt-1">Gerencie os acessos de administradores do sistema.</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* User List */}
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                  <div className="p-6 border-b border-gray-100">
+                    <h3 className="font-bold text-gray-900">Admins Ativos</h3>
+                  </div>
+                  <ul className="divide-y divide-gray-100">
+                    {adminUsers.map(user => (
+                      <li key={user.id} className="p-6 flex items-center justify-between hover:bg-gray-50/50">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-red-50 text-red-600 flex items-center justify-center font-bold">
+                            {user.email.charAt(0).toUpperCase()}
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold text-gray-900">{user.email}</p>
+                            <p className="text-xs text-gray-500">Desde {formatDate(user.created_at).split(' ')[0]}</p>
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* Add User Form */}
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                  <h3 className="font-bold text-gray-900 mb-6 flex items-center gap-2">
+                    <UserPlus className="w-5 h-5 text-red-600" />
+                    Novo Administrador
+                  </h3>
+                  
+                  <form onSubmit={handleCreateUser} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700">E-mail</label>
+                      <input 
+                        type="email" 
+                        required 
+                        value={newAdminEmail}
+                        onChange={e => setNewAdminEmail(e.target.value)}
+                        className="mt-1 w-full px-4 py-2 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-red-500 focus:border-red-500" 
+                        placeholder="email@exemplo.com"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700">Senha</label>
+                      <input 
+                        type="password" 
+                        required 
+                        value={newAdminPassword}
+                        onChange={e => setNewAdminPassword(e.target.value)}
+                        className="mt-1 w-full px-4 py-2 border border-gray-200 rounded-xl bg-gray-50 focus:bg-white focus:ring-2 focus:ring-red-500 focus:border-red-500" 
+                        placeholder="••••••••"
+                      />
+                    </div>
+                    
+                    {userMessage.text && (
+                      <div className={`p-3 rounded-xl text-sm font-medium ${userMessage.type === 'error' ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
+                        {userMessage.text}
+                      </div>
+                    )}
+
+                    <button
+                      type="submit"
+                      disabled={creatingUser}
+                      className="w-full py-3 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm shadow-lg shadow-red-600/20 transition-all hover:-translate-y-0.5 disabled:opacity-50"
+                    >
+                      {creatingUser ? 'Criando usuário...' : 'Conceder Acesso Master'}
+                    </button>
+                  </form>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* TAB: SETTINGS */}
           {activeTab === 'settings' && (
             <div className="max-w-3xl space-y-6 animate-in fade-in duration-500">
@@ -380,7 +532,7 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                   </div>
 
                   {message.text && (
-                    <div className={\`p-4 rounded-xl text-sm font-medium \${message.type === 'error' ? 'bg-red-50 border border-red-100 text-red-700' : 'bg-green-50 border border-green-100 text-green-700'}\`}>
+                    <div className={`p-4 rounded-xl text-sm font-medium ${message.type === 'error' ? 'bg-red-50 border border-red-100 text-red-700' : 'bg-green-50 border border-green-100 text-green-700'}`}>
                       {message.text}
                     </div>
                   )}
