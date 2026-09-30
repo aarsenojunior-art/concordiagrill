@@ -12,6 +12,7 @@ const rootDir = path.dirname(fileURLToPath(import.meta.url));
 const isProduction = process.env.NODE_ENV === 'production' || process.argv.includes('--production');
 
 const packages = {
+  TESTE: { name: 'Produto Teste', pricePerPerson: 100 },
   CG02: { name: 'Confraterniza Grill', pricePerPerson: 160 },
   CG03: { name: 'Celebração Grill', pricePerPerson: 160 },
   CG04: { name: '15 Anos Essencial', pricePerPerson: 160 },
@@ -25,7 +26,7 @@ const extras = {
   extra_hour: { name: 'Hora Adicional de Buffet', fixedPrice: 1200 },
 };
 
-const allowedGuestCounts = new Set([25, 50, 75, 100, 150, 200, 250, 300]);
+const allowedGuestCounts = new Set([1, 25, 50, 75, 100, 150, 200, 250, 300]);
 const allowedCheckoutHosts = new Set(['payment-link.pagar.me', 'checkout.pagar.me']);
 
 app.disable('x-powered-by');

@@ -126,6 +126,26 @@ export const PACKAGES: PackageItem[] = [
       guarnicoes: ['Arroz branco e arroz biro-biro', 'Farofa crocante amanteigada', 'Salada mista com molho de mostarda e mel'],
       servico: ['Equipe com churrasqueiro chefe e garçons de apoio', 'Réchauds aquecidos e reposição constante', '4 horas de buffet livre']
     }
+  },
+  {
+    id: 'TESTE',
+    code: 'TESTE',
+    name: 'Produto Teste',
+    category: 'outros',
+    categoryLabel: 'Teste',
+    people: 1,
+    totalPrice: 100,
+    perPerson: 100.00,
+    durationHours: 1,
+    image: '',
+    altText: 'Produto Teste',
+    highlights: ['Produto apenas para testes de pagamento'],
+    fullMenu: {
+      entradas: [],
+      carnes: [],
+      guarnicoes: [],
+      servico: []
+    }
   }
 ];
 
