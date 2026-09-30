@@ -337,7 +337,7 @@ export function AdminDashboard({ onLogout }: { onLogout: () => void }) {
                       <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#6b7280', fontSize: 12}} dy={10} />
                       <YAxis axisLine={false} tickLine={false} tick={{fill: '#6b7280', fontSize: 12}} tickFormatter={(val) => `R$ ${val}`} />
                       <Tooltip 
-                        formatter={(value: number) => [`R$ ${value.toFixed(2)}`, 'Faturamento']}
+                        formatter={(value) => [`R$ ${Number(value).toFixed(2)}`, 'Faturamento'] as [string, string]}
                         contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
                       />
                       <Area type="monotone" dataKey="total" stroke="#e03131" strokeWidth={3} fillOpacity={1} fill="url(#colorTotal)" />
