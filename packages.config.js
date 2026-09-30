@@ -1,5 +1,5 @@
 // packages.config.js
-// Configuração central de pacotes e preços do Concórdia Grill.
+// Configuração central de pacotes, preços e links de pagamento externos do Concórdia Grill.
 // Compartilhado pelo backend Node.js e frontend React/Vite.
 // Todos os valores em centavos (ex.: 700000 = R$ 7.000,00).
 
@@ -38,3 +38,37 @@ export const PACKAGE_NAMES = {
 };
 
 export const ALLOWED_GUEST_COUNTS = [50, 100, 150];
+
+// Links de pagamento externos por pacote e quantidade de convidados
+// Substitua pelas URLs reais de checkout (ex.: link de pagamento Pagar.me ou gateway externo)
+export const EXTERNAL_PAYMENT_LINKS = {
+  CG02: {
+    50: 'https://payment-link.pagar.me/confraterniza-grill-50',
+    100: 'https://payment-link.pagar.me/confraterniza-grill-100',
+    150: 'https://payment-link.pagar.me/confraterniza-grill-150',
+  },
+  CG06: {
+    50: 'https://payment-link.pagar.me/casamento-essencial-50',
+    100: 'https://payment-link.pagar.me/casamento-essencial-100',
+    150: 'https://payment-link.pagar.me/casamento-essencial-150',
+  },
+  CG03: {
+    50: 'https://payment-link.pagar.me/celebracao-grill-50',
+    100: 'https://payment-link.pagar.me/celebracao-grill-100',
+    150: 'https://payment-link.pagar.me/celebracao-grill-150',
+  },
+  CG04: {
+    50: 'https://payment-link.pagar.me/15-anos-essencial-50',
+    100: 'https://payment-link.pagar.me/15-anos-essencial-100',
+    150: 'https://payment-link.pagar.me/15-anos-essencial-150',
+  },
+};
+
+export function getExternalPaymentUrl(packageCode, guests) {
+  const code = (packageCode || '').toUpperCase();
+  const pkgLinks = EXTERNAL_PAYMENT_LINKS[code];
+  if (pkgLinks && pkgLinks[guests]) {
+    return pkgLinks[guests];
+  }
+  return `https://payment-link.pagar.me/?pacote=${code}&convidados=${guests}`;
+}

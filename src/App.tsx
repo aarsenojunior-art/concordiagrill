@@ -7,16 +7,15 @@ import { HowItWorks } from './components/HowItWorks';
 import { EventSelection, EventSimulator } from './components/EventSimulator';
 import { ProductPage } from './components/ProductPage';
 import { QuoteModal } from './components/QuoteModal';
-import { GatewayModal } from './components/GatewayModal';
 import { Footer } from './components/Footer';
 import { PACKAGES, PackageItem } from './data/packages';
+import { getExternalPaymentUrl } from '../packages.config.js';
 
-type Route = 'home' | 'product' | 'checkout';
+type Route = 'home' | 'product';
 
 export default function App() {
   const packages = PACKAGES;
   const [viewingProduct, setViewingProduct] = useState<PackageItem | null>(null);
-  const [checkoutSelection, setCheckoutSelection] = useState<{ pkg: PackageItem; guests: number } | null>(null);
   const [eventSelection, setEventSelection] = useState<EventSelection>({ packageCode: 'CG03', guests: 50 });
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
   const [currentRoute, setCurrentRoute] = useState<Route>('home');
@@ -31,8 +30,6 @@ export default function App() {
         const code = hash.replace('#produto/', '').toUpperCase();
         const found = packages.find((pkg) => pkg.code === code);
         if (found) { setViewingProduct(found); setCurrentRoute('product'); }
-      } else if (hash.startsWith('#checkout') && checkoutSelection) {
-        setCurrentRoute('checkout');
       } else {
         setCurrentRoute('home');
         setViewingProduct(null);
@@ -41,7 +38,7 @@ export default function App() {
     handleHashChange();
     window.addEventListener('hashchange', handleHashChange);
     return () => { window.removeEventListener('hashchange', handleHashChange); };
-  }, [checkoutSelection, packages]);
+  }, [packages]);
 
   const navigateHome = (section: string) => {
     setCurrentRoute('home'); setViewingProduct(null); window.location.hash = section;
@@ -58,8 +55,9 @@ export default function App() {
     navigateHome('meu-evento');
   };
 
-  const openCheckout = (pkg: PackageItem, guests: number) => {
-    setCheckoutSelection({ pkg, guests }); setCurrentRoute('checkout'); window.location.hash = 'checkout'; window.scrollTo({ top: 0, behavior: 'smooth' });
+  const handleExternalPayment = (pkg: PackageItem, guests: number) => {
+    const externalUrl = getExternalPaymentUrl(pkg.code, guests);
+    window.location.assign(externalUrl);
   };
 
   const openQuote = () => {
@@ -73,17 +71,15 @@ export default function App() {
     <div className="min-h-screen bg-white text-gray-900 flex flex-col selection:bg-[#e03131] selection:text-white">
       <Header onOpenQuoteModal={openQuote} onNavigateHome={navigateHome} />
       <main className="w-full flex-1">
-        {currentRoute === 'checkout' && checkoutSelection ? (
-          <GatewayModal pkg={checkoutSelection.pkg} guests={checkoutSelection.guests} onClose={() => navigateHome('meu-evento')} />
-        ) : currentRoute === 'product' && viewingProduct ? (
-          <ProductPage pkg={viewingProduct} onBack={() => navigateHome('pacotes')} onSelectOtherProduct={openProduct} onCheckout={openCheckout} />
+        {currentRoute === 'product' && viewingProduct ? (
+          <ProductPage pkg={viewingProduct} onBack={() => navigateHome('pacotes')} onSelectOtherProduct={openProduct} onPayment={handleExternalPayment} />
         ) : (
           <>
             <Hero onScrollToPackages={() => navigateHome('pacotes')} />
-            <PackagesCatalog packages={packages} onOpenDetails={openProduct} onSelectOption={selectForEvent} onCheckout={openCheckout} />
+            <PackagesCatalog packages={packages} onOpenDetails={openProduct} onSelectOption={selectForEvent} onPayment={handleExternalPayment} />
             <TransparencyConditions />
             <HowItWorks onScrollToPackages={() => navigateHome('pacotes')} onOpenDirectContact={openQuote} />
-            <EventSimulator packages={packages} initialSelection={eventSelection} onCheckout={openCheckout} />
+            <EventSimulator packages={packages} initialSelection={eventSelection} onPayment={handleExternalPayment} />
           </>
         )}
       </main>

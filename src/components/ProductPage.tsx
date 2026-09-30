@@ -18,7 +18,7 @@ interface ProductPageProps {
   pkg: PackageItem;
   onBack: () => void;
   onSelectOtherProduct: (pkg: PackageItem) => void;
-  onCheckout: (pkg: PackageItem, guests: number) => void;
+  onPayment: (pkg: PackageItem, guests: number) => void;
 }
 
 // Formata valor em Real Brasileiro: R$ 1.000,00
@@ -32,7 +32,7 @@ export const ProductPage: React.FC<ProductPageProps> = ({
   pkg,
   onBack,
   onSelectOtherProduct,
-  onCheckout,
+  onPayment,
 }) => {
   // Rola ao topo quando o produto muda
   useEffect(() => {
@@ -70,7 +70,7 @@ export const ProductPage: React.FC<ProductPageProps> = ({
   const handleBuy = () => {
     if (!canBuy || purchaseClicked) return;
     setPurchaseClicked(true);
-    if (displayGuests) onCheckout(pkg, displayGuests);
+    if (displayGuests) onPayment(pkg, displayGuests);
     setTimeout(() => setPurchaseClicked(false), 1000);
   };
 

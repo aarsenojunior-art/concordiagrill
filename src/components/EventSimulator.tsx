@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, CheckCircle2, Users, Utensils } from 'lucide-react';
+import { ExternalLink, CheckCircle2, Users, Utensils } from 'lucide-react';
 import { formatBRL, PackageItem } from '../data/packages';
 
 export interface EventSelection {
@@ -10,10 +10,10 @@ export interface EventSelection {
 interface EventSimulatorProps {
   packages: PackageItem[];
   initialSelection: EventSelection;
-  onCheckout: (pkg: PackageItem, guests: number) => void;
+  onPayment: (pkg: PackageItem, guests: number) => void;
 }
 
-export const EventSimulator: React.FC<EventSimulatorProps> = ({ packages, initialSelection, onCheckout }) => {
+export const EventSimulator: React.FC<EventSimulatorProps> = ({ packages, initialSelection, onPayment }) => {
   const [packageCode, setPackageCode] = useState(initialSelection.packageCode);
   const [guests, setGuests] = useState(initialSelection.guests);
 
@@ -69,7 +69,8 @@ export const EventSimulator: React.FC<EventSimulatorProps> = ({ packages, initia
               <div className="text-4xl font-bold text-[#e03131] tabular-nums mt-1">{formatBRL(selectedOption.price)}</div>
             </div>
             <div className="flex items-center gap-2 text-xs text-gray-600"><CheckCircle2 className="w-4 h-4 text-green-600" />Preço confirmado para a quantidade selecionada.</div>
-            <button type="button" onClick={() => onCheckout(currentPkg, guests)} className="w-full h-14 bg-[#e03131] hover:bg-[#bc121c] text-white font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors">Ir para o pagamento <ArrowRight className="w-4 h-4" /></button>
+            <button type="button" onClick={() => onPayment(currentPkg, guests)} className="w-full h-14 bg-[#e03131] hover:bg-[#bc121c] text-white font-bold uppercase tracking-wider flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-lg hover:shadow-xl">Ir para o pagamento <ExternalLink className="w-4 h-4" /></button>
+            <p className="text-xs text-center text-gray-500">Você será direcionado diretamente para a página de pagamento seguro.</p>
           </div>
         </div>
       </div>

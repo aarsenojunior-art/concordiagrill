@@ -6,10 +6,10 @@ interface PackagesCatalogProps {
   packages: PackageItem[];
   onOpenDetails: (pkg: PackageItem) => void;
   onSelectOption: (pkg: PackageItem, guests: number) => void;
-  onCheckout?: (pkg: PackageItem, guests: number) => void;
+  onPayment?: (pkg: PackageItem, guests: number) => void;
 }
 
-export const PackagesCatalog: React.FC<PackagesCatalogProps> = ({ packages, onOpenDetails, onSelectOption, onCheckout }) => {
+export const PackagesCatalog: React.FC<PackagesCatalogProps> = ({ packages, onOpenDetails, onSelectOption, onPayment }) => {
   const [activeFilter, setActiveFilter] = useState<'all' | PackageItem['category']>('all');
   const [selectedGuests, setSelectedGuests] = useState<Record<string, number>>({});
   const filteredPackages = packages.filter((pkg) => activeFilter === 'all' || pkg.category === activeFilter);
@@ -61,7 +61,7 @@ export const PackagesCatalog: React.FC<PackagesCatalogProps> = ({ packages, onOp
                     <div className="text-2xl font-bold text-[#e03131] tabular-nums">{formatBRL(selectedOption.price)}</div>
                     <div className="grid grid-cols-2 gap-2">
                       <button type="button" onClick={() => onOpenDetails(pkg)} className="h-11 rounded-xl border border-gray-200 text-xs font-bold uppercase text-gray-700 hover:bg-gray-50 cursor-pointer">Detalhes</button>
-                      <button type="button" onClick={() => (onCheckout ? onCheckout(pkg, guests) : onSelectOption(pkg, guests))} className="h-11 rounded-xl bg-[#e03131] text-white text-xs font-bold uppercase hover:bg-[#bc121c] cursor-pointer transition-colors">Contratar</button>
+                      <button type="button" onClick={() => (onPayment ? onPayment(pkg, guests) : onSelectOption(pkg, guests))} className="h-11 rounded-xl bg-[#e03131] text-white text-xs font-bold uppercase hover:bg-[#bc121c] cursor-pointer transition-colors">Contratar</button>
                     </div>
                   </div>
                 </div>

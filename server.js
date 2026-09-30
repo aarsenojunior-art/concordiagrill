@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 import express from 'express';
-import { PACKAGE_PRICE_CENTS, PACKAGE_NAMES, ALLOWED_GUEST_COUNTS } from './packages.config.js';
+import { PACKAGE_PRICE_CENTS, PACKAGE_NAMES, ALLOWED_GUEST_COUNTS, getExternalPaymentUrl } from './packages.config.js';
 
 dotenv.config({ path: ['.env.local', '.env'] });
 
@@ -99,10 +99,12 @@ app.post('/api/checkout', async (req, res) => {
 
   // Chaves da Pagar.me ficam SOMENTE nas variáveis de ambiente do servidor
   const pagarmeKey = process.env.PAGARME_SECRET_KEY || process.env.PAGARME_KEY;
-  if (!pagarmeKey) {
-    console.error('ERRO: PAGARME_SECRET_KEY não configurada no servidor.');
-    return res.status(503).json({
-      error: 'O serviço de pagamento seguro Pagar.me não está configurado no servidor. Configure a variável PAGARME_SECRET_KEY no .env.',
+  if (!pagarmeKey || pagarmeKey.includes('sua_chave')) {
+    const externalUrl = getExternalPaymentUrl(packageCode, guests);
+    return res.json({
+      url: externalUrl,
+      orderCode: orderId,
+      totalFormatted: (priceInfo.priceCents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
     });
   }
 
