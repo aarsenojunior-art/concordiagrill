@@ -103,7 +103,6 @@ app.post('/api/checkout', async (req, res) => {
     const externalUrl = getExternalPaymentUrl(packageCode, guests);
     return res.json({
       url: externalUrl,
-      orderCode: orderId,
       totalFormatted: (priceInfo.priceCents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
     });
   }

@@ -39,28 +39,28 @@ export const PACKAGE_NAMES = {
 
 export const ALLOWED_GUEST_COUNTS = [50, 100, 150];
 
-// Links de pagamento externos por pacote e quantidade de convidados
-// Substitua pelas URLs reais de checkout (ex.: link de pagamento Pagar.me ou gateway externo)
+// Links externos provisórios por pacote e quantidade de convidados.
+// Troque cada URL pelo link de pagamento correspondente quando estiver disponível.
 export const EXTERNAL_PAYMENT_LINKS = {
   CG02: {
-    50: 'https://payment-link.pagar.me/confraterniza-grill-50',
-    100: 'https://payment-link.pagar.me/confraterniza-grill-100',
-    150: 'https://payment-link.pagar.me/confraterniza-grill-150',
+    50: 'https://www.google.com/',
+    100: 'https://www.google.com/',
+    150: 'https://www.google.com/',
   },
   CG06: {
-    50: 'https://payment-link.pagar.me/casamento-essencial-50',
-    100: 'https://payment-link.pagar.me/casamento-essencial-100',
-    150: 'https://payment-link.pagar.me/casamento-essencial-150',
+    50: 'https://www.google.com/',
+    100: 'https://www.google.com/',
+    150: 'https://www.google.com/',
   },
   CG03: {
-    50: 'https://payment-link.pagar.me/celebracao-grill-50',
-    100: 'https://payment-link.pagar.me/celebracao-grill-100',
-    150: 'https://payment-link.pagar.me/celebracao-grill-150',
+    50: 'https://www.google.com/',
+    100: 'https://www.google.com/',
+    150: 'https://www.google.com/',
   },
   CG04: {
-    50: 'https://payment-link.pagar.me/15-anos-essencial-50',
-    100: 'https://payment-link.pagar.me/15-anos-essencial-100',
-    150: 'https://payment-link.pagar.me/15-anos-essencial-150',
+    50: 'https://www.google.com/',
+    100: 'https://www.google.com/',
+    150: 'https://www.google.com/',
   },
 };
 
@@ -70,5 +70,5 @@ export function getExternalPaymentUrl(packageCode, guests) {
   if (pkgLinks && pkgLinks[guests]) {
     return pkgLinks[guests];
   }
-  return `https://payment-link.pagar.me/?pacote=${code}&convidados=${guests}`;
+  return 'https://www.google.com/';
 }

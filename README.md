@@ -1,6 +1,6 @@
 # Concórdia Grill - Buffet & Celebrações
 
-Sistema web de contratação direta de buffets para eventos do Concórdia Grill (Cuiabá - MT), com catálogo de pacotes, dimensionamento por quantidade de convidados (50, 100 e 150 pessoas) e checkout seguro integrado à Pagar.me v5.
+Sistema web de contratação direta de buffets para eventos do Concórdia Grill (Cuiabá - MT), com catálogo de pacotes, dimensionamento por quantidade de convidados (50, 100 e 150 pessoas) e redirecionamento para links externos de pagamento.
 
 ## 1. Regras de Negócio e Pacotes
 
@@ -30,17 +30,12 @@ Os pacotes e seus valores são centralizados em `packages.config.js`:
 
 1. O cliente visualiza os pacotes e seleciona o número de convidados (50, 100 ou 150) no card ou na página individual do produto.
 2. O valor total em BRL atualiza instantaneamente.
-3. Ao clicar em **Contratar** ou **Ir para o pagamento**, o modal de checkout solicita os dados do titular (nome, e-mail, telefone, CPF/CNPJ) e forma de pagamento (PIX ou Cartão).
-4. O backend valida os dados, calcula o total diretamente do arquivo de configuração `packages.config.js` (nunca confiando em valores vindos do navegador) e gera a sessão de pagamento seguro na Pagar.me.
+3. Ao clicar em **Contratar** ou **Ir para o pagamento**, o cliente é direcionado ao link externo configurado para o pacote e a quantidade selecionados.
+4. Enquanto os links definitivos não estiverem disponíveis, todas as opções usam `https://www.google.com/` como endereço provisório.
 
-## 3. Variáveis de Ambiente do Servidor
+## 3. Links de pagamento
 
-As credenciais ficam **exclusivamente no servidor**, configuradas no arquivo `.env` (nunca no código e nunca no frontend):
-
-- `PORT`: Porta do servidor HTTP (padrão: 3000).
-- `PAGARME_SECRET_KEY`: Chave secreta da Pagar.me v5 (`sk_...`).
-- `PAGARME_ENVIRONMENT`: `production` ou `sandbox`.
-- `WEBHOOK_SECRET`: (Opcional) Senha de autenticação Basic para os webhooks da Pagar.me.
+Os endereços ficam centralizados em `EXTERNAL_PAYMENT_LINKS`, dentro de `packages.config.js`. Quando os links definitivos forem recebidos, basta substituir o endereço correspondente a cada pacote e quantidade.
 
 ## 4. Como Executar
 
@@ -59,10 +54,9 @@ npm start
 ## 5. Estrutura do Projeto
 
 - `packages.config.js`: Arquivo central de preços e nomes de pacotes.
-- `server.js`: Backend Express com cálculo seguro de valores, integração Pagar.me e persistência local de pedidos.
+- `server.js`: Servidor Express da aplicação.
 - `src/`: Aplicação frontend React + Vite + Tailwind CSS.
   - `src/components/PackagesCatalog.tsx`: Catálogo com seletor de convidados e atualização dinâmica de preço.
-  - `src/components/ProductPage.tsx`: Página de detalhes do pacote com termo de concordância e checkout direto.
+  - `src/components/ProductPage.tsx`: Página de detalhes do pacote com termo de concordância e redirecionamento externo.
   - `src/components/EventSimulator.tsx`: Simulador "Meu evento".
-  - `src/components/GatewayModal.tsx`: Formulário de dados do titular e redirecionamento Pagar.me.
   - `src/data/packages.ts`: Catálogo de cardápios, descrições e itens inclusos.
