@@ -203,7 +203,7 @@ app.post('/api/checkout', async (req, res) => {
   const selectedExtras = Array.isArray(body.selectedExtras) ? body.selectedExtras : [];
 
   if (!packages[packageCode]) return res.status(400).json({ error: 'Pacote inválido.' });
-  if (!Number.isInteger(guests) || !allowedGuestCounts.has(guests)) return res.status(400).json({ error: 'Quantidade de convidados inválida.' });
+  if (!Number.isInteger(guests) || (guests < 10 && guests !== 1)) return res.status(400).json({ error: 'Quantidade de convidados inválida.' });
   if (selectedExtras.some((id) => typeof id !== 'string' || !extras[id])) return res.status(400).json({ error: 'Opcional inválido.' });
 
   // Load config
