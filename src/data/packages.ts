@@ -1,35 +1,36 @@
-/**
- * CONCÓRDIA GRILL — Dados dos Produtos
- *
- * ============================================================
- * COMO ATUALIZAR PREÇOS E LINKS EXTERNOS
- * ============================================================
- * Todos os preços e links de compra estão centralizados abaixo,
- * dentro do campo `purchaseOptions` de cada produto.
- *
- * Para cada pacote, localize o `purchaseOptions` correspondente
- * e substitua os valores quando os dados definitivos estiverem disponíveis:
- *
- *   price      → valor total em reais (número inteiro ou decimal)
- *   externalUrl → URL completa do link de compra externo
- *
- * Para a opção "Outros" (quantidade personalizada):
- *   - Se existir uma regra de cálculo por pessoa, defina `perPersonPrice`
- *     e o sistema calculará automaticamente o total.
- *   - Se não houver regra confiável, mantenha `perPersonPrice` como null
- *     e defina `consultUrl` com o link de atendimento. O site exibirá
- *     "Valor sob consulta" e abrirá esse link ao clicar em comprar.
- * ============================================================
- */
+import { PACKAGE_PRICE_CENTS } from '../../package-prices.js';
+
+/** Dados editoriais dos produtos. Os preços vêm da tabela package_prices,
+ * com fallback único compartilhado em package-prices.js. */
 
 export interface PurchaseOption {
   guests: number;
   price: number;
-  externalUrl: string;
 }
 
-// Link temporário de pagamento — substituir pelo link definitivo
-const TEMPORARY_PAYMENT_URL = 'https://www.google.com';
+export interface PackagePriceRecord {
+  packageCode: string;
+  guests: number;
+  priceCents: number;
+}
+
+export const ALLOWED_GUEST_COUNTS = [50, 100, 150] as const;
+
+export const formatBRL = (value: number): string =>
+  value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+export const applyPackagePrices = (
+  packages: PackageItem[],
+  records: PackagePriceRecord[],
+): PackageItem[] => packages.map((pkg) => ({
+  ...pkg,
+  purchaseOptions: pkg.purchaseOptions.map((option) => {
+    const record = records.find(
+      (item) => item.packageCode === pkg.code && item.guests === option.guests,
+    );
+    return record ? { ...option, price: record.priceCents / 100 } : option;
+  }),
+}));
 
 export interface PackageItem {
   id: string;
@@ -38,7 +39,6 @@ export interface PackageItem {
   category: 'casamento' | 'aniversario' | '15anos' | 'outros';
   categoryLabel: string;
   people: number;
-  perPerson: number;
   durationHours: number;
   highlight?: boolean;
   tag?: string;
@@ -52,20 +52,7 @@ export interface PackageItem {
     sobremesas?: string[];
     servico: string[];
   };
-  /**
-   * Opções de compra por quantidade de pessoas.
-   * Altere somente aqui para atualizar preços e links no site inteiro.
-   */
   purchaseOptions: PurchaseOption[];
-  /**
-   * Configuração da opção "Outros" (quantidade personalizada).
-   * Se perPersonPrice for null, o site exibirá "Valor sob consulta".
-   */
-  customOption: {
-    minGuests: number;
-    perPersonPrice: number | null;
-    consultUrl: string;
-  };
 }
 
 // ============================================================
@@ -77,8 +64,7 @@ const CG03: PackageItem = {
   name: 'Celebração Grill',
   category: 'aniversario',
   categoryLabel: 'Aniversário',
-  people: 100,
-  perPerson: 160.00,
+  people: 50,
   durationHours: 4,
   highlight: true,
   tag: 'Destaque Aniversário',
@@ -98,31 +84,18 @@ const CG03: PackageItem = {
   },
   purchaseOptions: [
     {
-      guests: 10,
-      price: 100,
-      externalUrl: TEMPORARY_PAYMENT_URL
+      guests: 50,
+      price: PACKAGE_PRICE_CENTS.CG03[50] / 100
     },
     {
-      guests: 200,
-      price: 32000, // TODO: substituir pelo valor real para 200 pessoas
-      externalUrl: TEMPORARY_PAYMENT_URL
+      guests: 100,
+      price: PACKAGE_PRICE_CENTS.CG03[100] / 100
     },
     {
-      guests: 500,
-      price: 80000, // TODO: substituir pelo valor real para 500 pessoas
-      externalUrl: TEMPORARY_PAYMENT_URL
-    },
-    {
-      guests: 1000,
-      price: 160000, // TODO: substituir pelo valor real para 1000 pessoas
-      externalUrl: TEMPORARY_PAYMENT_URL
+      guests: 150,
+      price: PACKAGE_PRICE_CENTS.CG03[150] / 100
     }
-  ],
-  customOption: {
-    minGuests: 50,
-    perPersonPrice: 160, // TODO: confirmar valor por pessoa ou definir null para exibir "Valor sob consulta"
-    consultUrl: TEMPORARY_PAYMENT_URL
-  }
+  ]
 };
 
 // ============================================================
@@ -134,8 +107,7 @@ const CG04: PackageItem = {
   name: '15 Anos Essencial',
   category: '15anos',
   categoryLabel: '15 Anos',
-  people: 100,
-  perPerson: 160.00,
+  people: 50,
   durationHours: 4,
   tag: 'Festa de 15 Anos',
   image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBelgoRJl4Vh3Uo6de4YcU0CMbSFULDOlBoZ0buQn30TV35fc_tKMFANwLFJ9L_dY0LhcC5uzwM76MkqwMNx58IC4ioJ0SyqH0PrJYuwWtK5omerHJxDaXhMsEwc0rnWOCzSXurVNgXyBn0CGl0erSAGpltTMSrS_EoTAiALnSPy-nXoh9SxJ8kRH5CBW-DjaBhbIQfYBvrVnneRT0cFxffH8ENDLPQmtA5GL2SdNaEkkH0NmMNLMSo',
@@ -154,31 +126,18 @@ const CG04: PackageItem = {
   },
   purchaseOptions: [
     {
-      guests: 10,
-      price: 100,
-      externalUrl: TEMPORARY_PAYMENT_URL
+      guests: 50,
+      price: PACKAGE_PRICE_CENTS.CG04[50] / 100
     },
     {
-      guests: 200,
-      price: 32000, // TODO: substituir pelo valor real para 200 pessoas
-      externalUrl: TEMPORARY_PAYMENT_URL
+      guests: 100,
+      price: PACKAGE_PRICE_CENTS.CG04[100] / 100
     },
     {
-      guests: 500,
-      price: 80000, // TODO: substituir pelo valor real para 500 pessoas
-      externalUrl: TEMPORARY_PAYMENT_URL
-    },
-    {
-      guests: 1000,
-      price: 160000, // TODO: substituir pelo valor real para 1000 pessoas
-      externalUrl: TEMPORARY_PAYMENT_URL
+      guests: 150,
+      price: PACKAGE_PRICE_CENTS.CG04[150] / 100
     }
-  ],
-  customOption: {
-    minGuests: 50,
-    perPersonPrice: 160, // TODO: confirmar valor por pessoa ou definir null para exibir "Valor sob consulta"
-    consultUrl: TEMPORARY_PAYMENT_URL
-  }
+  ]
 };
 
 // ============================================================
@@ -190,8 +149,7 @@ const CG06: PackageItem = {
   name: 'Casamento Essencial',
   category: 'casamento',
   categoryLabel: 'Casamento',
-  people: 100,
-  perPerson: 160.00,
+  people: 50,
   durationHours: 4,
   tag: 'Recepção Matrimonial',
   image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBaXBdtNXzhD3xwcxqtdzDK8PJJmo_OPtxoQBrh-GqipNjXytP4YekIexN3DeIOyQHXVyl2ubuVrmdLxkg6Y2DOAyHvj2q7fA7wpw0MoKjV36A49jlFwhCAzopsfA1Y-GYcC9odgEVuTi-OiCVFLlhW51vGBsB2IWeZGOm4mLyC1KNqqwweNJrjDU03YpLCAevxNP2a9AJtcrOSRaUOJyxB63MRVbMhkRZZ-VZKeuHuSpjzavbqr0mJ',
@@ -210,31 +168,18 @@ const CG06: PackageItem = {
   },
   purchaseOptions: [
     {
-      guests: 10,
-      price: 100,
-      externalUrl: TEMPORARY_PAYMENT_URL
+      guests: 50,
+      price: PACKAGE_PRICE_CENTS.CG06[50] / 100
     },
     {
-      guests: 200,
-      price: 32000, // TODO: substituir pelo valor real para 200 pessoas
-      externalUrl: TEMPORARY_PAYMENT_URL
+      guests: 100,
+      price: PACKAGE_PRICE_CENTS.CG06[100] / 100
     },
     {
-      guests: 500,
-      price: 80000, // TODO: substituir pelo valor real para 500 pessoas
-      externalUrl: TEMPORARY_PAYMENT_URL
-    },
-    {
-      guests: 1000,
-      price: 160000, // TODO: substituir pelo valor real para 1000 pessoas
-      externalUrl: TEMPORARY_PAYMENT_URL
+      guests: 150,
+      price: PACKAGE_PRICE_CENTS.CG06[150] / 100
     }
-  ],
-  customOption: {
-    minGuests: 50,
-    perPersonPrice: 160, // TODO: confirmar valor por pessoa ou definir null para exibir "Valor sob consulta"
-    consultUrl: TEMPORARY_PAYMENT_URL
-  }
+  ]
 };
 
 // ============================================================
@@ -246,8 +191,7 @@ const CG02: PackageItem = {
   name: 'Confraterniza Grill',
   category: 'outros',
   categoryLabel: 'Outros',
-  people: 100,
-  perPerson: 160.00,
+  people: 50,
   durationHours: 4,
   tag: 'Corporativo & Amigos',
   image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCFiwmdk9KLej63jEf8Yh7KDEKkLlmheseM9G3QcjzET29T8l7Rh9YSpo-9IJThPwi6JxV2phMwb637aTxphIAjiOQS0bUA1I-aJQVZ0wu1bxIoQ1kUVLGGGO9VUgPzaqVL4vo8TZSS2pzMTaUQGg5Lf15m2MQrb8Y8uEkiuR8WiVJ-L_5KSMUOArrg7NpXt94QnJapBpcm8g6dz8ZiRBjonsV_HwwP-Dkjw3irK9VWxtcFYh9M0pzg',
@@ -265,31 +209,18 @@ const CG02: PackageItem = {
   },
   purchaseOptions: [
     {
-      guests: 10,
-      price: 100,
-      externalUrl: TEMPORARY_PAYMENT_URL
+      guests: 50,
+      price: PACKAGE_PRICE_CENTS.CG02[50] / 100
     },
     {
-      guests: 200,
-      price: 32000, // TODO: substituir pelo valor real para 200 pessoas
-      externalUrl: TEMPORARY_PAYMENT_URL
+      guests: 100,
+      price: PACKAGE_PRICE_CENTS.CG02[100] / 100
     },
     {
-      guests: 500,
-      price: 80000, // TODO: substituir pelo valor real para 500 pessoas
-      externalUrl: TEMPORARY_PAYMENT_URL
-    },
-    {
-      guests: 1000,
-      price: 160000, // TODO: substituir pelo valor real para 1000 pessoas
-      externalUrl: TEMPORARY_PAYMENT_URL
+      guests: 150,
+      price: PACKAGE_PRICE_CENTS.CG02[150] / 100
     }
-  ],
-  customOption: {
-    minGuests: 50,
-    perPersonPrice: 160, // TODO: confirmar valor por pessoa ou definir null para exibir "Valor sob consulta"
-    consultUrl: TEMPORARY_PAYMENT_URL
-  }
+  ]
 };
 
 export const PACKAGES: PackageItem[] = [CG03, CG04, CG06, CG02];

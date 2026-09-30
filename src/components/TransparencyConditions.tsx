@@ -69,7 +69,7 @@ export const TransparencyConditions: React.FC = () => {
                   <span>Disponibilidade &amp; Pagamentos</span>
                 </div>
                 <p className="text-xs text-gray-600 leading-relaxed">
-                  Valores válidos mediante confirmação de data. Checkout online temporariamente suspenso para garantir alinhamento prévio da agenda do restaurante.
+                  Valores válidos mediante confirmação de data. O checkout online utiliza o preço oficial cadastrado para o pacote e a quantidade escolhida.
                 </p>
               </div>
 

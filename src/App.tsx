@@ -1,142 +1,89 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Header } from './components/Header';
 import { Hero } from './components/Hero';
 import { PackagesCatalog } from './components/PackagesCatalog';
 import { TransparencyConditions } from './components/TransparencyConditions';
 import { HowItWorks } from './components/HowItWorks';
-import { EventSimulator } from './components/EventSimulator';
+import { EventSelection, EventSimulator } from './components/EventSimulator';
 import { ProductPage } from './components/ProductPage';
 import { QuoteModal } from './components/QuoteModal';
+import { GatewayModal } from './components/GatewayModal';
 import { Footer } from './components/Footer';
-import { PACKAGES, PackageItem } from './data/packages';
+import { applyPackagePrices, PACKAGES, PackageItem, PackagePriceRecord } from './data/packages';
 import { AdminLogin } from './components/AdminLogin';
 import { AdminDashboard } from './components/AdminDashboard';
 import { supabase } from './lib/supabase';
 
+type Route = 'home' | 'product' | 'checkout' | 'admin-login' | 'admin';
+
 export default function App() {
-  // Página individual de produto: quando definido, renderiza ProductPage
+  const [packages, setPackages] = useState<PackageItem[]>(PACKAGES);
   const [viewingProduct, setViewingProduct] = useState<PackageItem | null>(null);
-
-  const [isQuoteModalOpen, setIsQuoteModalOpen] = useState<boolean>(false);
-  const [currentRoute, setCurrentRoute] = useState<'home' | 'product' | 'admin-login' | 'admin'>('home');
-
+  const [checkoutSelection, setCheckoutSelection] = useState<{ pkg: PackageItem; guests: number } | null>(null);
+  const [eventSelection, setEventSelection] = useState<EventSelection>({ packageCode: 'CG03', guests: 50 });
+  const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
+  const [currentRoute, setCurrentRoute] = useState<Route>('home');
   const [activeProposalDetails, setActiveProposalDetails] = useState<{
-    packageCode: string;
-    packageName: string;
-    guests: number;
-    estimatedTotal: string;
-    extras: string[];
-    termsConfirmed: boolean;
+    packageCode: string; packageName: string; guests: number; estimatedTotal: string; extras: string[]; termsConfirmed: boolean;
   } | null>(null);
 
-  // Roteamento via hash — mantém links compartilháveis
+  useEffect(() => {
+    fetch('/api/package-prices')
+      .then((response) => response.ok ? response.json() : Promise.reject(new Error('pricing unavailable')))
+      .then((records: PackagePriceRecord[]) => setPackages(applyPackagePrices(PACKAGES, records)))
+      .catch(() => setPackages(PACKAGES));
+  }, []);
+
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash;
       if (hash.startsWith('#produto/')) {
         const code = hash.replace('#produto/', '').toUpperCase();
-        const found = PACKAGES.find((p) => p.code.toUpperCase() === code || p.id.toUpperCase() === code);
-        if (found) {
-          setCurrentRoute('product');
-          setViewingProduct(found);
-          return;
-        }
+        const found = packages.find((pkg) => pkg.code === code);
+        if (found) { setViewingProduct(found); setCurrentRoute('product'); }
+      } else if (hash.startsWith('#checkout') && checkoutSelection) {
+        setCurrentRoute('checkout');
       } else if (hash.startsWith('#paineladm/dashboard')) {
         setCurrentRoute('admin');
       } else if (hash.startsWith('#paineladm')) {
         setCurrentRoute('admin-login');
-      } else if (
-        !hash ||
-        hash === '#' ||
-        hash === '#home' ||
-        hash === '#pacotes' ||
-        hash === '#meu-evento' ||
-        hash === '#como-funciona' ||
-        hash === '#contato'
-      ) {
+      } else {
         setCurrentRoute('home');
         setViewingProduct(null);
       }
     };
-
     handleHashChange();
     window.addEventListener('hashchange', handleHashChange);
-
-    // Controle de autenticação do painel admin
-    supabase.auth.onAuthStateChange((_, session) => {
-      if (session && window.location.hash === '#paineladm') {
-        window.location.hash = '#paineladm/dashboard';
-      } else if (!session && window.location.hash.startsWith('#paineladm/dashboard')) {
-        window.location.hash = '#paineladm';
-      }
+    const { data: authListener } = supabase.auth.onAuthStateChange((_, session) => {
+      if (session && window.location.hash === '#paineladm') window.location.hash = 'paineladm/dashboard';
+      else if (!session && window.location.hash.startsWith('#paineladm/dashboard')) window.location.hash = 'paineladm';
     });
+    return () => { window.removeEventListener('hashchange', handleHashChange); authListener.subscription.unsubscribe(); };
+  }, [checkoutSelection, packages]);
 
-    return () => window.removeEventListener('hashchange', handleHashChange);
-  }, []);
-
-  const handleNavigateHomeSection = (section: string) => {
-    setCurrentRoute('home');
-    setViewingProduct(null);
-    if (!section || section === 'home') {
-      try {
-        window.history.pushState(null, '', window.location.pathname);
-      } catch {
-        window.location.hash = '';
-      }
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      setTimeout(() => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }, 50);
-      return;
-    }
-    window.location.hash = section;
-    setTimeout(() => {
-      const el = document.getElementById(section);
-      if (el) el.scrollIntoView({ behavior: 'smooth' });
-    }, 60);
+  const navigateHome = (section: string) => {
+    setCurrentRoute('home'); setViewingProduct(null); window.location.hash = section;
+    setTimeout(() => document.getElementById(section || 'home')?.scrollIntoView({ behavior: 'smooth' }), 60);
+    if (!section) window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleScrollToPackages = () => {
-    handleNavigateHomeSection('pacotes');
+  const openProduct = (pkg: PackageItem) => {
+    setViewingProduct(pkg); setCurrentRoute('product'); window.location.hash = `produto/${pkg.code.toLowerCase()}`; window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleScrollToSimulator = () => {
-    handleNavigateHomeSection('meu-evento');
+  const selectForEvent = (pkg: PackageItem, guests: number) => {
+    setEventSelection({ packageCode: pkg.code, guests });
+    navigateHome('meu-evento');
   };
 
-  // Navega para a página individual de um produto
-  const handleOpenProductPage = (pkg: PackageItem) => {
-    setCurrentRoute('product');
-    setViewingProduct(pkg);
-    window.location.hash = `produto/${pkg.code.toLowerCase()}`;
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  const openCheckout = (pkg: PackageItem, guests: number) => {
+    setCheckoutSelection({ pkg, guests }); setCurrentRoute('checkout'); window.location.hash = 'checkout'; window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleBackToHome = () => {
-    setViewingProduct(null);
-    setCurrentRoute('home');
-    window.location.hash = 'pacotes';
-    setTimeout(() => {
-      const el = document.getElementById('pacotes');
-      if (el) el.scrollIntoView({ behavior: 'smooth' });
-    }, 60);
-  };
-
-  const handleOpenGeneralQuote = () => {
-    const defaultPkg = viewingProduct || PACKAGES[0];
-    setActiveProposalDetails({
-      packageCode: defaultPkg.code,
-      packageName: defaultPkg.name,
-      guests: defaultPkg.people,
-      estimatedTotal: `R$ ${(defaultPkg.people * defaultPkg.perPerson).toLocaleString('pt-BR')}`,
-      extras: [],
-      termsConfirmed: false,
-    });
+  const openQuote = () => {
+    const pkg = viewingProduct ?? packages[0];
+    const option = pkg.purchaseOptions[0];
+    setActiveProposalDetails({ packageCode: pkg.code, packageName: pkg.name, guests: option.guests, estimatedTotal: option.price.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }), extras: [], termsConfirmed: false });
     setIsQuoteModalOpen(true);
   };
 
@@ -144,62 +91,22 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-white text-gray-900 flex flex-col selection:bg-[#e03131] selection:text-white">
-
-      {/* Cabeçalho fixo — sem carrinho */}
-      {!isAdminRoute && (
-        <Header
-          onOpenQuoteModal={handleOpenGeneralQuote}
-          onNavigateHome={handleNavigateHomeSection}
-        />
-      )}
-
+      {!isAdminRoute && <Header onOpenQuoteModal={openQuote} onNavigateHome={navigateHome} />}
       <main className="w-full flex-1">
-        {currentRoute === 'admin-login' ? (
-          <AdminLogin onLoginSuccess={() => (window.location.hash = 'paineladm/dashboard')} />
-        ) : currentRoute === 'admin' ? (
-          <AdminDashboard onLogout={() => (window.location.hash = 'paineladm')} />
-        ) : currentRoute === 'product' && viewingProduct ? (
-          <ProductPage
-            pkg={viewingProduct}
-            onBack={handleBackToHome}
-            onSelectOtherProduct={handleOpenProductPage}
-          />
-        ) : (
-          <>
-            {/* Seção Hero */}
-            <Hero onScrollToPackages={handleScrollToPackages} />
-
-            {/* Catálogo de Pacotes */}
-            <PackagesCatalog
-              onOpenDetails={handleOpenProductPage}
-            />
-
-            {/* Transparência & Escopo Comercial */}
-            <TransparencyConditions />
-
-            {/* Guia de 3 Etapas */}
-            <HowItWorks
-              onScrollToPackages={handleScrollToPackages}
-              onOpenDirectContact={handleOpenGeneralQuote}
-            />
-
-            {/* Simulador de Evento */}
-            <EventSimulator />
-          </>
-        )}
+        {currentRoute === 'admin-login' ? <AdminLogin onLoginSuccess={() => { window.location.hash = 'paineladm/dashboard'; }} />
+          : currentRoute === 'admin' ? <AdminDashboard onLogout={() => { window.location.hash = 'paineladm'; }} />
+          : currentRoute === 'checkout' && checkoutSelection ? <GatewayModal pkg={checkoutSelection.pkg} guests={checkoutSelection.guests} onClose={() => navigateHome('meu-evento')} />
+          : currentRoute === 'product' && viewingProduct ? <ProductPage pkg={viewingProduct} onBack={() => navigateHome('pacotes')} onSelectOtherProduct={openProduct} onCheckout={openCheckout} />
+          : <>
+              <Hero onScrollToPackages={() => navigateHome('pacotes')} />
+              <PackagesCatalog packages={packages} onOpenDetails={openProduct} onSelectOption={selectForEvent} />
+              <TransparencyConditions />
+              <HowItWorks onScrollToPackages={() => navigateHome('pacotes')} onOpenDirectContact={openQuote} />
+              <EventSimulator packages={packages} initialSelection={eventSelection} onCheckout={openCheckout} />
+            </>}
       </main>
-
-      {/* Rodapé institucional */}
-      {!isAdminRoute && <Footer onOpenQuoteModal={handleOpenGeneralQuote} />}
-
-      {/* Modal de Orçamento / WhatsApp */}
-      {!isAdminRoute && (
-        <QuoteModal
-          isOpen={isQuoteModalOpen}
-          onClose={() => setIsQuoteModalOpen(false)}
-          proposalDetails={activeProposalDetails}
-        />
-      )}
+      {!isAdminRoute && <Footer onOpenQuoteModal={openQuote} />}
+      {!isAdminRoute && <QuoteModal isOpen={isQuoteModalOpen} onClose={() => setIsQuoteModalOpen(false)} proposalDetails={activeProposalDetails} />}
     </div>
   );
 }

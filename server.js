@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 import express from 'express';
 import { createClient } from '@supabase/supabase-js';
+import { PACKAGE_NAMES, PACKAGE_PRICE_CENTS } from './package-prices.js';
 
 dotenv.config({ path: ['.env.local', '.env'] });
 
@@ -24,30 +25,43 @@ const supabase = createClient(supabaseUrl || 'https://xyz.supabase.co', supabase
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY; // Must be 32 bytes (256 bits) for AES-256-GCM
 
 // Catalog Data
-const packages = {
-  TESTE: { name: 'Produto Teste', pricePerPerson: 100 },
-  CG02: { name: 'Confraterniza Grill', pricePerPerson: 160 },
-  CG03: { name: 'Celebração Grill', pricePerPerson: 160 },
-  CG04: { name: '15 Anos Essencial', pricePerPerson: 160 },
-  CG06: { name: 'Casamento Essencial', pricePerPerson: 160 },
-};
+const packages = Object.fromEntries(
+  Object.entries(PACKAGE_NAMES).map(([code, name]) => [code, { name, prices: PACKAGE_PRICE_CENTS[code] }]),
+);
 
-const extras = {
-  beverages: { name: 'Open Bar de Bebidas Não Alcoólicas', pricePerPerson: 18 },
-  draft_beer: { name: 'Chopp Artesanal ou Cerveja Pilsen Premium', pricePerPerson: 32 },
-  extra_dessert: { name: 'Mesa de Doces Finos e Sobremesas', pricePerPerson: 15 },
-  extra_hour: { name: 'Hora Adicional de Buffet', fixedPrice: 1200 },
-};
-
-const allowedGuestCounts = new Set([1, 25, 50, 75, 100, 150, 200, 250, 300]);
-const allowedCheckoutHosts = new Set(['payment-link.pagar.me', 'checkout.pagar.me', 'sandbox.pagar.me']);
+const allowedGuestCounts = new Set([50, 100, 150]);
 
 app.disable('x-powered-by');
 app.use(express.json({ limit: '20kb' }));
 
 // Utils
-function toCents(value) {
-  return Math.round(value * 100);
+function fallbackPriceRecords() {
+  return Object.entries(packages).flatMap(([packageCode, pkg]) =>
+    Object.entries(pkg.prices).map(([guests, priceCents]) => ({
+      packageCode,
+      guests: Number(guests),
+      priceCents,
+    })),
+  );
+}
+
+async function getPackagePriceRecords() {
+  const { data, error } = await supabase
+    .from('package_prices')
+    .select('package_code, guests, price_cents')
+    .eq('active', true)
+    .order('package_code')
+    .order('guests');
+  if (error || !data?.length) {
+    if (error) console.warn('Using fallback package prices:', error.message);
+    return fallbackPriceRecords();
+  }
+  return data.map((row) => ({ packageCode: row.package_code, guests: row.guests, priceCents: row.price_cents }));
+}
+
+async function resolvePackagePrice(packageCode, guests) {
+  const records = await getPackagePriceRecords();
+  return records.find((record) => record.packageCode === packageCode && record.guests === guests) || null;
 }
 
 function encrypt(text) {
@@ -85,6 +99,40 @@ async function authenticateAdmin(req, res, next) {
   req.admin = admin;
   next();
 }
+
+app.get('/api/package-prices', async (_req, res) => {
+  const records = await getPackagePriceRecords();
+  res.setHeader('Cache-Control', 'no-store');
+  res.json(records);
+});
+
+app.get('/api/admin/package-prices', authenticateAdmin, async (_req, res) => {
+  res.json(await getPackagePriceRecords());
+});
+
+app.put('/api/admin/package-prices', authenticateAdmin, async (req, res) => {
+  const records = Array.isArray(req.body?.prices) ? req.body.prices : [];
+  const expectedKeys = fallbackPriceRecords().map((item) => `${item.packageCode}:${item.guests}`);
+  const receivedKeys = records.map((item) => `${String(item.packageCode || '').toUpperCase()}:${Number(item.guests)}`);
+  if (records.length !== expectedKeys.length || expectedKeys.some((key) => !receivedKeys.includes(key))) {
+    return res.status(400).json({ error: 'Envie os preços de 50, 100 e 150 pessoas para todos os pacotes.' });
+  }
+  const rows = records.map((item) => ({
+    package_code: String(item.packageCode).toUpperCase(),
+    guests: Number(item.guests),
+    price_cents: Number(item.priceCents),
+    active: true,
+  }));
+  if (rows.some((row) => !packages[row.package_code] || !allowedGuestCounts.has(row.guests) || !Number.isInteger(row.price_cents) || row.price_cents <= 0)) {
+    return res.status(400).json({ error: 'Há preços ou quantidades inválidos.' });
+  }
+  const { error } = await supabase.from('package_prices').upsert(rows, { onConflict: 'package_code,guests' });
+  if (error) {
+    console.error('Package price update error:', error);
+    return res.status(500).json({ error: 'Não foi possível salvar os preços.' });
+  }
+  res.json({ success: true, prices: await getPackagePriceRecords() });
+});
 
 // Admin Config Endpoints
 app.get('/api/admin/config', authenticateAdmin, async (req, res) => {
@@ -173,38 +221,27 @@ app.post('/api/admin/users', authenticateAdmin, async (req, res) => {
   res.json({ success: true, user: { id: authData.user.id, email: authData.user.email } });
 });
 
-// Helper for cart calculations
-function buildCheckoutItems(packageCode, guests, selectedExtras) {
+// Checkout amount is resolved server-side from the central price table.
+function buildCheckoutItems(packageCode, guests, priceCents) {
   const selectedPackage = packages[packageCode];
-  const items = [{
+  return [{
     name: `${selectedPackage.name} - ${guests} pessoas`,
     description: `Pacote ${packageCode} do Concórdia Grill`,
-    amount: toCents(selectedPackage.pricePerPerson * guests),
+    amount: priceCents,
     default_quantity: 1,
   }];
-
-  for (const extraId of selectedExtras) {
-    const extra = extras[extraId];
-    const price = extra.fixedPrice ?? extra.pricePerPerson * guests;
-    items.push({
-      name: extra.name,
-      description: `Opcional para ${guests} pessoas`,
-      amount: toCents(price),
-      default_quantity: 1,
-    });
-  }
-  return items;
 }
 
 app.post('/api/checkout', async (req, res) => {
   const body = req.body || {};
   const packageCode = typeof body.packageCode === 'string' ? body.packageCode.toUpperCase() : '';
   const guests = Number(body.guests);
-  const selectedExtras = Array.isArray(body.selectedExtras) ? body.selectedExtras : [];
 
   if (!packages[packageCode]) return res.status(400).json({ error: 'Pacote inválido.' });
-  if (!Number.isInteger(guests) || (guests < 10 && guests !== 1)) return res.status(400).json({ error: 'Quantidade de convidados inválida.' });
-  if (selectedExtras.some((id) => typeof id !== 'string' || !extras[id])) return res.status(400).json({ error: 'Opcional inválido.' });
+  if (!Number.isInteger(guests) || !allowedGuestCounts.has(guests)) return res.status(400).json({ error: 'Quantidade de convidados inválida.' });
+
+  const selectedPrice = await resolvePackagePrice(packageCode, guests);
+  if (!selectedPrice) return res.status(400).json({ error: 'Preço não configurado para este pacote e quantidade.' });
 
   // Load config
   const { data: config } = await supabase.from('payment_config').select('*').eq('id', 1).single();
@@ -228,14 +265,14 @@ app.post('/api/checkout', async (req, res) => {
   const trackingToken = crypto.randomBytes(32).toString('hex');
   const trackingTokenHash = crypto.createHash('sha256').update(trackingToken).digest('hex');
   
-  const items = buildCheckoutItems(packageCode, guests, selectedExtras);
+  const items = buildCheckoutItems(packageCode, guests, selectedPrice.priceCents);
   const totalCents = items.reduce((acc, item) => acc + item.amount, 0);
 
   const { error: dbError } = await supabase.from('orders').insert({
     id: orderId,
     package_id: packageCode,
     guests_adults: guests,
-    optionals: selectedExtras,
+    optionals: [],
     total_cents: totalCents,
     customer_name: body.customer_name || 'Não informado',
     customer_email: body.customer_email || 'nao@informado.com',

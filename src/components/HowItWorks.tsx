@@ -68,7 +68,7 @@ export const HowItWorks: React.FC<HowItWorksProps> = ({
                 Escolha a quantidade e compre
               </h3>
               <p className="text-xs text-gray-600 leading-relaxed">
-                Na página do pacote, selecione o número de pessoas (10, 200, 500, 1.000 ou outro), veja o valor correspondente, confirme as condições e clique em <strong>IR PARA O PAGAMENTO</strong>.
+                Selecione 50, 100 ou 150 pessoas no card ou na página do pacote, confira o valor e clique em <strong>IR PARA O PAGAMENTO</strong>.
               </p>
             </div>
 

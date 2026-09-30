@@ -10,9 +10,7 @@ import {
   Share2,
   ChevronRight,
   Star,
-  ExternalLink,
-  AlertCircle,
-  Phone
+  ExternalLink
 } from 'lucide-react';
 import { PackageItem, PACKAGES } from '../data/packages';
 
@@ -20,6 +18,7 @@ interface ProductPageProps {
   pkg: PackageItem;
   onBack: () => void;
   onSelectOtherProduct: (pkg: PackageItem) => void;
+  onCheckout: (pkg: PackageItem, guests: number) => void;
 }
 
 // Formata valor em Real Brasileiro: R$ 1.000,00
@@ -27,12 +26,13 @@ const formatBRL = (val: number): string => {
   return 'R$ ' + val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
-type GuestOption = 10 | 200 | 500 | 1000 | 'outros';
+type GuestOption = 50 | 100 | 150;
 
 export const ProductPage: React.FC<ProductPageProps> = ({
   pkg,
   onBack,
   onSelectOtherProduct,
+  onCheckout,
 }) => {
   // Rola ao topo quando o produto muda
   useEffect(() => {
@@ -40,7 +40,6 @@ export const ProductPage: React.FC<ProductPageProps> = ({
   }, [pkg.id]);
 
   const [selectedOption, setSelectedOption] = useState<GuestOption | null>(null);
-  const [customGuests, setCustomGuests] = useState<string>('');
   const [termsConfirmed, setTermsConfirmed] = useState<boolean>(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [purchaseClicked, setPurchaseClicked] = useState(false);
@@ -48,7 +47,6 @@ export const ProductPage: React.FC<ProductPageProps> = ({
   // Reset state quando o produto muda
   useEffect(() => {
     setSelectedOption(null);
-    setCustomGuests('');
     setTermsConfirmed(false);
     setPurchaseClicked(false);
   }, [pkg.id]);
@@ -60,80 +58,31 @@ export const ProductPage: React.FC<ProductPageProps> = ({
   };
 
   // Resolve a opção de compra com base na seleção
-  const resolvedPurchaseOption = selectedOption !== null && selectedOption !== 'outros'
+  const resolvedPurchaseOption = selectedOption !== null
     ? pkg.purchaseOptions.find(o => o.guests === selectedOption) ?? null
     : null;
 
-  // Para opção "Outros": calcula o número de convidados e preço
-  const customGuestsNum = parseInt(customGuests, 10);
-  const isCustomGuestsValid =
-    selectedOption === 'outros' &&
-    !isNaN(customGuestsNum) &&
-    customGuestsNum >= pkg.customOption.minGuests;
-
-  const customPrice =
-    isCustomGuestsValid && pkg.customOption.perPersonPrice !== null
-      ? customGuestsNum * pkg.customOption.perPersonPrice
-      : null;
-
-  const isConsult =
-    selectedOption === 'outros' &&
-    isCustomGuestsValid &&
-    pkg.customOption.perPersonPrice === null;
-
   // Determina se uma quantidade válida foi selecionada
-  const hasValidSelection =
-    (selectedOption !== null && selectedOption !== 'outros' && resolvedPurchaseOption !== null) ||
-    (selectedOption === 'outros' && isCustomGuestsValid);
+  const hasValidSelection = selectedOption !== null && resolvedPurchaseOption !== null;
 
-  // Determina o link externo a ser aberto
-  const externalUrl: string | null = (() => {
-    if (selectedOption === 'outros') {
-      if (isConsult) return pkg.customOption.consultUrl || null;
-      if (isCustomGuestsValid && pkg.customOption.perPersonPrice !== null) {
-        return pkg.customOption.consultUrl || null;
-      }
-      return null;
-    }
-    return resolvedPurchaseOption?.externalUrl ?? null;
-  })();
-
-  const isValidExternalUrl = externalUrl !== null && !externalUrl.startsWith('https://TODO');
-
-  const canBuy = hasValidSelection && termsConfirmed && isValidExternalUrl;
+  const canBuy = hasValidSelection && termsConfirmed;
 
   const handleBuy = () => {
     if (!canBuy || purchaseClicked) return;
     setPurchaseClicked(true);
-    if (externalUrl) {
-      window.open(externalUrl, '_blank', 'noopener,noreferrer');
-    }
-    // Reset após breve delay para evitar cliques múltiplos acidentais
-    setTimeout(() => setPurchaseClicked(false), 2000);
+    if (displayGuests) onCheckout(pkg, displayGuests);
+    setTimeout(() => setPurchaseClicked(false), 1000);
   };
 
   // Preço a exibir no resumo
-  const displayPrice = (() => {
-    if (selectedOption === null) return null;
-    if (selectedOption !== 'outros') {
-      return resolvedPurchaseOption ? resolvedPurchaseOption.price : null;
-    }
-    if (!isCustomGuestsValid) return null;
-    if (isConsult) return 'consulta';
-    return customPrice;
-  })();
+  const displayPrice = resolvedPurchaseOption?.price ?? null;
 
   // Quantidade a exibir no resumo
-  const displayGuests = (() => {
-    if (selectedOption === null) return null;
-    if (selectedOption !== 'outros') return selectedOption;
-    return isCustomGuestsValid ? customGuestsNum : null;
-  })();
+  const displayGuests = selectedOption;
 
-  const PRESET_OPTIONS: GuestOption[] = [10, 200, 500, 1000, 'outros'];
+  const PRESET_OPTIONS: GuestOption[] = [50, 100, 150];
 
   const labelFor = (opt: GuestOption) => {
-    if (opt === 'outros') return 'Outros';
     return `${opt.toLocaleString('pt-BR')} pessoas`;
   };
 
@@ -242,7 +191,7 @@ export const ProductPage: React.FC<ProductPageProps> = ({
               <div className="flex flex-col items-center justify-center gap-1 border-r border-gray-200">
                 <Users className="w-4 h-4 text-red-600" />
                 <span className="text-[10px] text-gray-600 uppercase tracking-wider">Referência</span>
-                <span className="text-xs sm:text-sm font-bold text-gray-900">a partir de {pkg.customOption.minGuests} pessoas</span>
+                <span className="text-xs sm:text-sm font-bold text-gray-900">a partir de 50 pessoas</span>
               </div>
               <div className="flex flex-col items-center justify-center gap-1">
                 <Flame className="w-4 h-4 text-[#e03131]" />
@@ -369,9 +318,7 @@ export const ProductPage: React.FC<ProductPageProps> = ({
                 <div className="text-xs text-gray-600 pt-1">
                   Referência:{' '}
                   <strong className="text-gray-900 font-sans font-bold tabular-nums">
-                    {pkg.perPerson !== null
-                      ? `R$ ${pkg.perPerson.toFixed(2).replace('.', ',')}`
-                      : 'sob consulta'}
+                    {formatBRL(pkg.purchaseOptions[0].price / pkg.purchaseOptions[0].guests)}
                   </strong>{' '}
                   / pessoa
                 </div>
@@ -393,17 +340,13 @@ export const ProductPage: React.FC<ProductPageProps> = ({
                   id="guest-quantity"
                   value={selectedOption ?? ''}
                   onChange={(event) => {
-                    const value = event.target.value;
-                    setSelectedOption(value === 'outros' ? 'outros' : Number(value) as GuestOption);
-                    setCustomGuests('');
+                    setSelectedOption(Number(event.target.value) as GuestOption);
                   }}
                   className="w-full h-12 px-4 bg-white border-2 border-gray-200 focus:border-[#e03131] text-gray-900 font-bold focus:outline-none transition-colors text-sm cursor-pointer"
                 >
                   <option value="" disabled>Selecione a quantidade de pessoas</option>
                   {PRESET_OPTIONS.map((opt) => {
-                    const purchaseOpt = opt !== 'outros'
-                      ? pkg.purchaseOptions.find(o => o.guests === opt)
-                      : null;
+                    const purchaseOpt = pkg.purchaseOptions.find(o => o.guests === opt);
                     const priceLabel = purchaseOpt ? ` — ${formatBRL(purchaseOpt.price)}` : '';
 
                     return (
@@ -413,35 +356,6 @@ export const ProductPage: React.FC<ProductPageProps> = ({
                     );
                   })}
                 </select>
-
-                {/* Campo numérico para "Outros" */}
-                {selectedOption === 'outros' && (
-                  <div className="mt-2 flex flex-col gap-2">
-                    <label htmlFor="custom-guests" className="text-xs font-semibold text-gray-700">
-                      Informe a quantidade de pessoas (mínimo {pkg.customOption.minGuests}):
-                    </label>
-                    <input
-                      id="custom-guests"
-                      type="number"
-                      inputMode="numeric"
-                      min={pkg.customOption.minGuests}
-                      step={1}
-                      value={customGuests}
-                      onChange={(e) => {
-                        const raw = e.target.value.replace(/[^0-9]/g, '');
-                        setCustomGuests(raw);
-                      }}
-                      placeholder={`Ex: ${pkg.customOption.minGuests}`}
-                      className="w-full h-11 px-4 bg-white border-2 border-gray-200 focus:border-[#e03131] text-gray-900 font-bold focus:outline-none transition-colors text-sm"
-                    />
-                    {customGuests !== '' && !isCustomGuestsValid && (
-                      <p className="text-xs text-red-600 flex items-center gap-1">
-                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                        Mínimo de {pkg.customOption.minGuests} pessoas.
-                      </p>
-                    )}
-                  </div>
-                )}
               </div>
 
               {/* PASSO 2: Resumo do preço */}
@@ -456,27 +370,10 @@ export const ProductPage: React.FC<ProductPageProps> = ({
                       O valor total será exibido assim que você escolher o número de convidados.
                     </p>
                   </div>
-                ) : displayPrice === 'consulta' ? (
-                  <div className="w-full space-y-2">
-                    <span className="text-xs uppercase tracking-wider text-gray-600 font-semibold block">
-                      Valor para {displayGuests?.toLocaleString('pt-BR')} pessoas
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <Phone className="w-5 h-5 text-amber-600 shrink-0" />
-                      <span className="text-2xl font-bold text-amber-600">
-                        Valor sob consulta
-                      </span>
-                    </div>
-                    <p className="text-xs text-gray-600">
-                      Nossa equipe preparará uma proposta personalizada para você.
-                    </p>
-                  </div>
                 ) : (
                   <div className="w-full space-y-2 animate-[fadeIn_0.2s_ease-in-out]">
                     <span className="text-xs uppercase tracking-wider text-gray-600 font-semibold block">
-                      {selectedOption === 'outros'
-                        ? `Valor estimado para ${displayGuests?.toLocaleString('pt-BR')} pessoas`
-                        : `Valor para ${displayGuests?.toLocaleString('pt-BR')} pessoas`}
+                      Valor para {displayGuests?.toLocaleString('pt-BR')} pessoas
                     </span>
                     <div className="flex items-baseline justify-between flex-wrap gap-1">
                       <span className="text-2xl sm:text-4xl font-bold tracking-tight text-red-600 font-sans tabular-nums">
@@ -537,7 +434,7 @@ export const ProductPage: React.FC<ProductPageProps> = ({
                 >
                   <ExternalLink className="w-4 h-4" />
                   <span>
-                    {displayPrice === 'consulta' ? 'FALAR COM A EQUIPE' : 'IR PARA O PAGAMENTO'}
+                    IR PARA O PAGAMENTO
                   </span>
                 </button>
 
@@ -550,12 +447,6 @@ export const ProductPage: React.FC<ProductPageProps> = ({
                 {hasValidSelection && !termsConfirmed && (
                   <p className="text-xs text-gray-500 text-center">
                     Marque a caixa de concordância para continuar.
-                  </p>
-                )}
-                {hasValidSelection && termsConfirmed && !isValidExternalUrl && (
-                  <p className="text-xs text-amber-700 text-center flex items-center justify-center gap-1">
-                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                    Link de compra ainda não configurado. Entre em contato diretamente.
                   </p>
                 )}
               </div>
