@@ -96,7 +96,7 @@ export const QuoteModal: React.FC<QuoteModalProps> = ({
               </p>
             </div>
 
-            {/* Proposal Summary Pill if initiated from Simulator or Cart */}
+            {/* Proposal Summary Pill if initiated from Simulator */}
             {proposalDetails && (
               <div className="p-3 bg-gray-100 border border-gray-200 rounded-none text-xs flex flex-col gap-1">
                 <div className="flex items-center justify-between text-gray-600">

@@ -10,3 +10,6 @@ coverage/
 *.zip
 *.rar
 screencapture-*.png
+*.png
+data/
+!public/**/*.png

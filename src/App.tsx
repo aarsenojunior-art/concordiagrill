@@ -10,11 +10,8 @@ import { QuoteModal } from './components/QuoteModal';
 import { GatewayModal } from './components/GatewayModal';
 import { Footer } from './components/Footer';
 import { PACKAGES, PackageItem } from './data/packages';
-import { AdminLogin } from './components/AdminLogin';
-import { AdminDashboard } from './components/AdminDashboard';
-import { supabase } from './lib/supabase';
 
-type Route = 'home' | 'product' | 'checkout' | 'admin-login' | 'admin';
+type Route = 'home' | 'product' | 'checkout';
 
 export default function App() {
   const packages = PACKAGES;
@@ -36,10 +33,6 @@ export default function App() {
         if (found) { setViewingProduct(found); setCurrentRoute('product'); }
       } else if (hash.startsWith('#checkout') && checkoutSelection) {
         setCurrentRoute('checkout');
-      } else if (hash.startsWith('#paineladm/dashboard')) {
-        setCurrentRoute('admin');
-      } else if (hash.startsWith('#paineladm')) {
-        setCurrentRoute('admin-login');
       } else {
         setCurrentRoute('home');
         setViewingProduct(null);
@@ -47,11 +40,7 @@ export default function App() {
     };
     handleHashChange();
     window.addEventListener('hashchange', handleHashChange);
-    const { data: authListener } = supabase.auth.onAuthStateChange((_, session) => {
-      if (session && window.location.hash === '#paineladm') window.location.hash = 'paineladm/dashboard';
-      else if (!session && window.location.hash.startsWith('#paineladm/dashboard')) window.location.hash = 'paineladm';
-    });
-    return () => { window.removeEventListener('hashchange', handleHashChange); authListener.subscription.unsubscribe(); };
+    return () => { window.removeEventListener('hashchange', handleHashChange); };
   }, [checkoutSelection, packages]);
 
   const navigateHome = (section: string) => {
@@ -80,26 +69,26 @@ export default function App() {
     setIsQuoteModalOpen(true);
   };
 
-  const isAdminRoute = currentRoute === 'admin-login' || currentRoute === 'admin';
-
   return (
     <div className="min-h-screen bg-white text-gray-900 flex flex-col selection:bg-[#e03131] selection:text-white">
-      {!isAdminRoute && <Header onOpenQuoteModal={openQuote} onNavigateHome={navigateHome} />}
+      <Header onOpenQuoteModal={openQuote} onNavigateHome={navigateHome} />
       <main className="w-full flex-1">
-        {currentRoute === 'admin-login' ? <AdminLogin onLoginSuccess={() => { window.location.hash = 'paineladm/dashboard'; }} />
-          : currentRoute === 'admin' ? <AdminDashboard onLogout={() => { window.location.hash = 'paineladm'; }} />
-          : currentRoute === 'checkout' && checkoutSelection ? <GatewayModal pkg={checkoutSelection.pkg} guests={checkoutSelection.guests} onClose={() => navigateHome('meu-evento')} />
-          : currentRoute === 'product' && viewingProduct ? <ProductPage pkg={viewingProduct} onBack={() => navigateHome('pacotes')} onSelectOtherProduct={openProduct} onCheckout={openCheckout} />
-          : <>
-              <Hero onScrollToPackages={() => navigateHome('pacotes')} />
-              <PackagesCatalog packages={packages} onOpenDetails={openProduct} onSelectOption={selectForEvent} />
-              <TransparencyConditions />
-              <HowItWorks onScrollToPackages={() => navigateHome('pacotes')} onOpenDirectContact={openQuote} />
-              <EventSimulator packages={packages} initialSelection={eventSelection} onCheckout={openCheckout} />
-            </>}
+        {currentRoute === 'checkout' && checkoutSelection ? (
+          <GatewayModal pkg={checkoutSelection.pkg} guests={checkoutSelection.guests} onClose={() => navigateHome('meu-evento')} />
+        ) : currentRoute === 'product' && viewingProduct ? (
+          <ProductPage pkg={viewingProduct} onBack={() => navigateHome('pacotes')} onSelectOtherProduct={openProduct} onCheckout={openCheckout} />
+        ) : (
+          <>
+            <Hero onScrollToPackages={() => navigateHome('pacotes')} />
+            <PackagesCatalog packages={packages} onOpenDetails={openProduct} onSelectOption={selectForEvent} onCheckout={openCheckout} />
+            <TransparencyConditions />
+            <HowItWorks onScrollToPackages={() => navigateHome('pacotes')} onOpenDirectContact={openQuote} />
+            <EventSimulator packages={packages} initialSelection={eventSelection} onCheckout={openCheckout} />
+          </>
+        )}
       </main>
-      {!isAdminRoute && <Footer onOpenQuoteModal={openQuote} />}
-      {!isAdminRoute && <QuoteModal isOpen={isQuoteModalOpen} onClose={() => setIsQuoteModalOpen(false)} proposalDetails={activeProposalDetails} />}
+      <Footer onOpenQuoteModal={openQuote} />
+      <QuoteModal isOpen={isQuoteModalOpen} onClose={() => setIsQuoteModalOpen(false)} proposalDetails={activeProposalDetails} />
     </div>
   );
 }

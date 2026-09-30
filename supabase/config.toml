@@ -1,9 +1,0 @@
-[functions.checkout]
-verify_jwt = true
-
-[functions.get-order-status]
-verify_jwt = true
-
-[functions.webhook]
-# Pagar.me cannot attach a Supabase JWT; the function validates PAGARME_WEBHOOK_TOKEN itself.
-verify_jwt = false

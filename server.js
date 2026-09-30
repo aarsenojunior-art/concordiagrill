@@ -1,10 +1,10 @@
 import crypto from 'node:crypto';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 import express from 'express';
-import { createClient } from '@supabase/supabase-js';
-import { PACKAGE_NAMES, PACKAGE_PRICE_CENTS } from './package-prices.js';
+import { PACKAGE_PRICE_CENTS, PACKAGE_NAMES, ALLOWED_GUEST_COUNTS } from './packages.config.js';
 
 dotenv.config({ path: ['.env.local', '.env'] });
 
@@ -13,239 +13,158 @@ const port = Number(process.env.PORT || 3000);
 const rootDir = path.dirname(fileURLToPath(import.meta.url));
 const isProduction = process.env.NODE_ENV === 'production' || process.argv.includes('--production');
 
-// Supabase Init
-const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-if (!supabaseUrl || !supabaseKey) {
-  console.warn('WARNING: Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.');
+// Armazenamento local leve de pedidos (zero dependência de banco de dados externo)
+const dataDir = path.join(rootDir, 'data');
+const ordersFilePath = path.join(dataDir, 'orders.json');
+
+if (!fs.existsSync(dataDir)) {
+  fs.mkdirSync(dataDir, { recursive: true });
 }
-const supabase = createClient(supabaseUrl || 'https://xyz.supabase.co', supabaseKey || 'dummy');
+if (!fs.existsSync(ordersFilePath)) {
+  fs.writeFileSync(ordersFilePath, JSON.stringify([], null, 2), 'utf-8');
+}
 
-// Crypto Settings
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY; // Must be 32 bytes (256 bits) for AES-256-GCM
+function readOrders() {
+  try {
+    const raw = fs.readFileSync(ordersFilePath, 'utf-8');
+    return JSON.parse(raw) || [];
+  } catch (err) {
+    console.error('Erro ao ler pedidos locais:', err);
+    return [];
+  }
+}
 
-// Catalog Data
-const packages = Object.fromEntries(
-  Object.entries(PACKAGE_NAMES).map(([code, name]) => [code, { name, prices: PACKAGE_PRICE_CENTS[code] }]),
-);
+function saveOrders(orders) {
+  try {
+    fs.writeFileSync(ordersFilePath, JSON.stringify(orders, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Erro ao salvar pedidos locais:', err);
+  }
+}
 
-const allowedGuestCounts = new Set([50, 100, 150]);
+function recordOrder(order) {
+  const orders = readOrders();
+  orders.unshift(order);
+  // Mantém os 500 pedidos mais recentes
+  if (orders.length > 500) orders.length = 500;
+  saveOrders(orders);
+}
+
+function updateOrder(orderId, updates) {
+  const orders = readOrders();
+  const index = orders.findIndex((o) => o.id === orderId || o.gatewayOrderId === orderId || o.orderCode === orderId);
+  if (index !== -1) {
+    orders[index] = { ...orders[index], ...updates, updatedAt: new Date().toISOString() };
+    saveOrders(orders);
+    return orders[index];
+  }
+  return null;
+}
+
+function findOrderByTokenHash(tokenHash) {
+  const orders = readOrders();
+  return orders.find((o) => o.trackingTokenHash === tokenHash) || null;
+}
 
 app.disable('x-powered-by');
 app.use(express.json({ limit: '20kb' }));
 
-// Utils
-function fallbackPriceRecords() {
-  return Object.entries(packages).flatMap(([packageCode, pkg]) =>
-    Object.entries(pkg.prices).map(([guests, priceCents]) => ({
-      packageCode,
-      guests: Number(guests),
-      priceCents,
-    })),
-  );
-}
-
+// Preço calculado com segurança no backend a partir de packages.config.js
 function resolvePackagePrice(packageCode, guests) {
-  const records = fallbackPriceRecords();
-  return records.find((record) => record.packageCode === packageCode && record.guests === guests) || null;
+  if (!PACKAGE_PRICE_CENTS[packageCode]) return null;
+  const price = PACKAGE_PRICE_CENTS[packageCode][guests];
+  if (typeof price !== 'number') return null;
+  return { packageCode, guests, priceCents: price };
 }
 
-function encrypt(text) {
-  if (!ENCRYPTION_KEY || ENCRYPTION_KEY.length !== 32) throw new Error('Invalid ENCRYPTION_KEY length (must be exactly 32 bytes)');
-  const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv('aes-256-gcm', Buffer.from(ENCRYPTION_KEY, 'utf-8'), iv);
-  let encrypted = cipher.update(text, 'utf8', 'hex');
-  encrypted += cipher.final('hex');
-  const authTag = cipher.getAuthTag().toString('hex');
-  return { encrypted, iv: iv.toString('hex'), authTag };
-}
-
-function decrypt(encrypted, ivHex, authTagHex) {
-  if (!ENCRYPTION_KEY || ENCRYPTION_KEY.length !== 32) throw new Error('Invalid ENCRYPTION_KEY length (must be exactly 32 bytes)');
-  const decipher = crypto.createDecipheriv('aes-256-gcm', Buffer.from(ENCRYPTION_KEY, 'utf-8'), Buffer.from(ivHex, 'hex'));
-  decipher.setAuthTag(Buffer.from(authTagHex, 'hex'));
-  let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-  decrypted += decipher.final('utf8');
-  return decrypted;
-}
-
-// Check Admin Middleware
-async function authenticateAdmin(req, res, next) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) return res.status(401).json({ error: 'Token não fornecido ou inválido' });
-  const token = authHeader.split(' ')[1];
-
-  const { data: { user }, error } = await supabase.auth.getUser(token);
-  if (error || !user) return res.status(401).json({ error: 'Sessão inválida ou expirada' });
-
-  // Validate admin role in DB
-  const { data: admin } = await supabase.from('admins').select('*').eq('id', user.id).single();
-  if (!admin) return res.status(403).json({ error: 'Acesso negado' });
-
-  req.admin = admin;
-  next();
-}
-
-// Admin Config Endpoints
-app.get('/api/admin/config', authenticateAdmin, async (req, res) => {
-  const { data, error } = await supabase.from('payment_config').select('*').eq('id', 1).single();
-  if (error && error.code !== 'PGRST116') return res.status(500).json({ error: 'Erro ao buscar configuração' });
-  
-  res.json({
-    environment: data?.environment || 'sandbox',
-    pagarme_key_configured: !!data?.pagarme_key_encrypted
-  });
-});
-
-app.post('/api/admin/config', authenticateAdmin, async (req, res) => {
-  const { environment, pagarme_key } = req.body;
-  let updates = { id: 1, environment: environment || 'sandbox' };
-  
-  if (pagarme_key && pagarme_key.trim() !== '') {
-    try {
-      const { encrypted, iv, authTag } = encrypt(pagarme_key.trim());
-      updates.pagarme_key_encrypted = encrypted;
-      updates.pagarme_key_iv = iv;
-      updates.pagarme_key_auth_tag = authTag;
-    } catch (err) {
-      console.error('Crypto error:', err);
-      return res.status(500).json({ error: 'Erro ao criptografar chave. Verifique ENCRYPTION_KEY no .env.' });
-    }
-  }
-
-  const { error } = await supabase.from('payment_config').upsert(updates);
-  if (error) {
-    console.error('DB update error:', error);
-    return res.status(500).json({ error: 'Erro ao salvar configuração no banco' });
-  }
-
-  res.json({ success: true });
-});
-
-app.get('/api/admin/orders', authenticateAdmin, async (req, res) => {
-  const { data, error } = await supabase
-    .from('orders')
-    .select('*')
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    console.error('Error fetching orders:', error);
-    return res.status(500).json({ error: 'Erro ao buscar pedidos' });
-  }
-  res.json(data || []);
-});
-
-app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
-  const { data, error } = await supabase.from('admins').select('*').order('created_at', { ascending: false });
-  if (error) return res.status(500).json({ error: 'Erro ao buscar administradores' });
-  res.json(data || []);
-});
-
-app.post('/api/admin/users', authenticateAdmin, async (req, res) => {
-  const { email, password } = req.body;
-  if (!email || !password) return res.status(400).json({ error: 'Email e senha são obrigatórios' });
-
-  // 1. Create user in Supabase Auth using Admin API
-  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-    email,
-    password,
-    email_confirm: true,
-  });
-
-  if (authError) {
-    console.error('Create user error:', authError);
-    return res.status(400).json({ error: authError.message });
-  }
-
-  // 2. Add to admins table
-  const { error: dbError } = await supabase.from('admins').insert({
-    id: authData.user.id,
-    email: authData.user.email
-  });
-
-  if (dbError) {
-    console.error('Insert admin error:', dbError);
-    // Best effort rollback
-    await supabase.auth.admin.deleteUser(authData.user.id);
-    return res.status(500).json({ error: 'Erro ao salvar administrador no banco' });
-  }
-
-  res.json({ success: true, user: { id: authData.user.id, email: authData.user.email } });
-});
-
-// Checkout amount is resolved server-side from the central price table.
-function buildCheckoutItems(packageCode, guests, priceCents) {
-  const selectedPackage = packages[packageCode];
-  return [{
-    name: `${selectedPackage.name} - ${guests} pessoas`,
-    description: `Pacote ${packageCode} do Concórdia Grill`,
-    amount: priceCents,
-    default_quantity: 1,
-  }];
-}
-
+// Inicia checkout seguro com Pagar.me v5
 app.post('/api/checkout', async (req, res) => {
   const body = req.body || {};
-  const packageCode = typeof body.packageCode === 'string' ? body.packageCode.toUpperCase() : '';
+  const packageCode = typeof body.packageCode === 'string' ? body.packageCode.trim().toUpperCase() : '';
   const guests = Number(body.guests);
 
-  if (!packages[packageCode]) return res.status(400).json({ error: 'Pacote inválido.' });
-  if (!Number.isInteger(guests) || !allowedGuestCounts.has(guests)) return res.status(400).json({ error: 'Quantidade de convidados inválida.' });
-
-  const selectedPrice = resolvePackagePrice(packageCode, guests);
-  if (!selectedPrice) return res.status(400).json({ error: 'Preço não configurado para este pacote e quantidade.' });
-
-  // Load config
-  const { data: config } = await supabase.from('payment_config').select('*').eq('id', 1).single();
-  if (!config || !config.pagarme_key_encrypted) {
-    return res.status(503).json({ error: 'O checkout não está configurado.' });
+  if (!PACKAGE_PRICE_CENTS[packageCode]) {
+    return res.status(400).json({ error: 'Pacote inválido ou não encontrado.' });
   }
 
-  let secretKey;
-  try {
-    secretKey = decrypt(config.pagarme_key_encrypted, config.pagarme_key_iv, config.pagarme_key_auth_tag);
-  } catch (err) {
-    console.error('Decryption error:', err);
-    return res.status(500).json({ error: 'Erro interno ao decifrar credenciais. Fale com o suporte.' });
+  if (!Number.isInteger(guests) || !ALLOWED_GUEST_COUNTS.includes(guests)) {
+    return res.status(400).json({ error: 'Quantidade de convidados inválida. Opções permitidas: 50, 100 ou 150 pessoas.' });
   }
 
-  const baseUrl = config.environment === 'production' 
-    ? 'https://api.pagar.me/core/v5' 
-    : 'https://sdx-api.pagar.me/core/v5';
+  // Preço calculado no backend a partir de packages.config.js — NUNCA confia no navegador
+  const priceInfo = resolvePackagePrice(packageCode, guests);
+  if (!priceInfo) {
+    return res.status(400).json({ error: 'Preço não configurado para este pacote e quantidade.' });
+  }
 
-  const orderId = crypto.randomUUID();
+  // Chaves da Pagar.me ficam SOMENTE nas variáveis de ambiente do servidor
+  const pagarmeKey = process.env.PAGARME_SECRET_KEY || process.env.PAGARME_KEY;
+  if (!pagarmeKey) {
+    console.error('ERRO: PAGARME_SECRET_KEY não configurada no servidor.');
+    return res.status(503).json({
+      error: 'O serviço de pagamento seguro Pagar.me não está configurado no servidor. Configure a variável PAGARME_SECRET_KEY no .env.',
+    });
+  }
+
+  const isPagarmeProd = process.env.PAGARME_ENVIRONMENT === 'production' || (!pagarmeKey.startsWith('sk_test_') && isProduction);
+  const baseUrl = isPagarmeProd ? 'https://api.pagar.me/core/v5' : 'https://sdx-api.pagar.me/core/v5';
+
+  const orderId = `CG-${Date.now().toString(36).toUpperCase()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
   const trackingToken = crypto.randomBytes(32).toString('hex');
   const trackingTokenHash = crypto.createHash('sha256').update(trackingToken).digest('hex');
-  
-  const items = buildCheckoutItems(packageCode, guests, selectedPrice.priceCents);
-  const totalCents = items.reduce((acc, item) => acc + item.amount, 0);
 
-  const { error: dbError } = await supabase.from('orders').insert({
+  const packageName = PACKAGE_NAMES[packageCode] || packageCode;
+  const items = [
+    {
+      name: `${packageName} — ${guests} pessoas`,
+      description: `Buffet Concórdia Grill - Pacote ${packageCode} (${guests} convidados)`,
+      amount: priceInfo.priceCents,
+      default_quantity: 1,
+    },
+  ];
+
+  const orderRecord = {
     id: orderId,
-    package_id: packageCode,
-    guests_adults: guests,
-    optionals: [],
-    total_cents: totalCents,
+    orderCode: orderId,
+    packageCode,
+    packageName,
+    guests,
+    totalCents: priceInfo.priceCents,
     customer_name: body.customer_name || 'Não informado',
     customer_email: body.customer_email || 'nao@informado.com',
-    customer_phone: body.customer_phone || '0000000000',
-    tracking_token_hash: trackingTokenHash,
-    status: 'pending'
-  });
+    customer_phone: body.customer_phone || 'Não informado',
+    customer_document: body.customer_document || '',
+    trackingTokenHash,
+    status: 'pending',
+    payment_method: body.payment_method || 'pix',
+    createdAt: new Date().toISOString(),
+  };
 
-  if (dbError) {
-    console.error('Order DB insertion failed:', dbError);
-    return res.status(500).json({ error: 'Erro ao registrar pedido.' });
-  }
+  recordOrder(orderRecord);
 
   const payload = {
     type: 'order',
-    name: `Concórdia Grill ${packageCode}`,
+    name: `Concórdia Grill - ${packageName}`,
     order_code: orderId,
-    expires_in: 120,
+    expires_in: 120, // 2 horas
     max_paid_sessions: 1,
-    payment_settings: { accepted_payment_methods: body.payment_method ? [body.payment_method] : ['pix', 'credit_card'] },
+    payment_settings: {
+      accepted_payment_methods: body.payment_method ? [body.payment_method] : ['pix', 'credit_card'],
+    },
     cart_settings: { items },
+    customer_settings: {
+      customer: {
+        name: body.customer_name || 'Cliente Concórdia Grill',
+        email: body.customer_email || 'cliente@concordiagrill.com.br',
+        phones: body.customer_phone ? {
+          mobile_phone: {
+            country_code: '55',
+            area_code: body.customer_phone.replace(/\D/g, '').slice(0, 2) || '65',
+            number: body.customer_phone.replace(/\D/g, '').slice(2) || '999999999',
+          }
+        } : undefined,
+      }
+    }
   };
 
   try {
@@ -253,114 +172,113 @@ app.post('/api/checkout', async (req, res) => {
       method: 'POST',
       headers: {
         Accept: 'application/json',
-        Authorization: `Basic ${Buffer.from(`${secretKey}:`).toString('base64')}`,
+        Authorization: `Basic ${Buffer.from(`${pagarmeKey.trim()}:`).toString('base64')}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(payload),
     });
 
     const result = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      console.error('Pagar.me Error:', result);
-      return res.status(502).json({ error: 'Erro ao criar pagamento.' });
+    if (!response.ok || !result.url) {
+      console.error('Erro na resposta da Pagar.me:', result);
+      return res.status(502).json({
+        error: result.message || 'Erro ao gerar o link de pagamento na Pagar.me. Verifique suas credenciais.',
+      });
     }
-    
-    // We update the gateway_order_id just for completeness
-    await supabase.from('orders').update({ gateway_order_id: result.id }).eq('id', orderId);
 
-    res.json({ url: result.url, trackingToken });
+    updateOrder(orderId, { gatewayOrderId: result.id, paymentUrl: result.url });
+
+    res.json({
+      url: result.url,
+      orderCode: orderId,
+      trackingToken,
+      totalFormatted: (priceInfo.priceCents / 100).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }),
+    });
   } catch (error) {
-    console.error('Fetch error:', error);
-    res.status(502).json({ error: 'Serviço de pagamento indisponível.' });
+    console.error('Erro de conexão com Pagar.me:', error);
+    res.status(502).json({ error: 'Serviço de pagamento indisponível temporariamente.' });
   }
 });
 
-app.get('/api/order-status', async (req, res) => {
+// Consulta de status do pedido por token seguro
+app.get('/api/order-status', (req, res) => {
   res.setHeader('Cache-Control', 'no-store');
   const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) return res.status(401).json({ error: 'Token não fornecido' });
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Token não fornecido ou inválido' });
+  }
   const token = authHeader.split(' ')[1];
-
   const hash = crypto.createHash('sha256').update(token).digest('hex');
-  const { data: order } = await supabase.from('orders').select('status, payment_method, total_cents, pix_payload').eq('tracking_token_hash', hash).single();
 
-  if (!order) return res.status(404).json({ error: 'Pedido não encontrado' });
+  const order = findOrderByTokenHash(hash);
+  if (!order) {
+    return res.status(404).json({ error: 'Pedido não encontrado' });
+  }
 
   res.json({
+    orderCode: order.orderCode,
     status: order.status,
+    packageName: order.packageName,
+    guests: order.guests,
+    amount: order.totalCents,
     paymentMethod: order.payment_method,
-    amount: order.total_cents,
-    pix: order.pix_payload
+    pix: order.pix_payload || null,
   });
 });
 
-app.post('/api/webhook', async (req, res) => {
-  // Pagar.me V5 Webhook Authentication (via Basic Auth configured in the dashboard)
+// Webhook da Pagar.me v5 para confirmação de pagamento
+app.post('/api/webhook', (req, res) => {
   const webhookSecret = process.env.WEBHOOK_SECRET;
   if (webhookSecret) {
     const authHeader = req.headers.authorization;
     if (!authHeader || authHeader !== `Basic ${Buffer.from(`${webhookSecret}:`).toString('base64')}`) {
-      console.error('Webhook auth failed.');
+      console.error('Falha de autenticação no webhook Pagar.me.');
       return res.status(401).send('Unauthorized');
     }
   }
 
   const payload = req.body;
-  if (!payload || !payload.id || !payload.type) return res.status(400).send('Invalid');
-
-  // Idempotency check
-  const { error: eventError } = await supabase.from('payment_events').insert({
-    order_id: payload.data?.code, // Reference to local order if exists
-    gateway_event_id: payload.id,
-    event_type: payload.type,
-    payload: payload
-  });
-
-  if (eventError) {
-    if (eventError.code === '23505' || eventError.message.includes('unique constraint')) {
-      return res.status(200).send('Idempotent OK');
-    }
-    // Let Pagarme retry if it was a real DB issue, except if foreign key
-    if (eventError.code === '23503') return res.status(404).send('Order not found');
-    console.error('Webhook DB Event Error:', eventError);
-    return res.status(500).send('DB Error');
+  if (!payload || !payload.id || !payload.type) {
+    return res.status(400).send('Invalid');
   }
 
-  if (payload.data?.code) {
+  const orderCode = payload.data?.code;
+  if (orderCode) {
     const updates = {};
     if (payload.type === 'order.paid') updates.status = 'paid';
     else if (payload.type === 'order.payment_failed') updates.status = 'failed';
     else if (payload.type === 'order.canceled') updates.status = 'canceled';
-    
+
     const charges = payload.data?.charges;
     if (charges && charges.length > 0) {
-       updates.payment_method = charges[0].payment_method;
-       if (updates.payment_method === 'pix' && charges[0].last_transaction?.qr_code) {
-         updates.pix_payload = {
-           qr_code: charges[0].last_transaction.qr_code,
-           qr_code_url: charges[0].last_transaction.qr_code_url,
-           expires_at: charges[0].last_transaction.expires_at
-         };
-       }
+      updates.payment_method = charges[0].payment_method;
+      if (updates.payment_method === 'pix' && charges[0].last_transaction?.qr_code) {
+        updates.pix_payload = {
+          qr_code: charges[0].last_transaction.qr_code,
+          qr_code_url: charges[0].last_transaction.qr_code_url,
+          expires_at: charges[0].last_transaction.expires_at,
+        };
+      }
     }
 
     if (Object.keys(updates).length > 0) {
-      const { error: upError } = await supabase.from('orders').update(updates).eq('id', payload.data.code);
-      if (upError) console.error('Webhook DB Update Error:', upError);
+      updateOrder(orderCode, updates);
     }
   }
 
   res.status(200).send('OK');
 });
 
+// Servir frontend
 if (isProduction) {
   app.use(express.static(path.join(rootDir, 'dist')));
   app.get('*', (_req, res) => res.sendFile(path.join(rootDir, 'dist', 'index.html')));
 } else {
   import('vite').then(({ createServer }) => {
-    createServer({ root: rootDir, server: { middlewareMode: true }, appType: 'spa' })
-      .then(vite => app.use(vite.middlewares));
+    createServer({ root: rootDir, server: { middlewareMode: true }, appType: 'spa' }).then((vite) => {
+      app.use(vite.middlewares);
+    });
   });
 }
 
-app.listen(port, () => console.log(`Server running on port ${port}`));
+app.listen(port, () => console.log(`Servidor Concórdia Grill rodando na porta ${port}`));

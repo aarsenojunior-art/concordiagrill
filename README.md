@@ -1,40 +1,68 @@
-# Concórdia Grill - Integração Pagar.me & Supabase
+# Concórdia Grill - Buffet & Celebrações
 
-Este projeto foi construído com Vite, React, Tailwind e um backend Express, integrado ao Supabase para Autenticação e Banco de Dados, e ao Pagar.me V5 para Checkouts.
+Sistema web de contratação direta de buffets para eventos do Concórdia Grill (Cuiabá - MT), com catálogo de pacotes, dimensionamento por quantidade de convidados (50, 100 e 150 pessoas) e checkout seguro integrado à Pagar.me v5.
 
-## 1. Visão Geral da Arquitetura
-O frontend interage com o backend via `/api/*`. O backend é responsável pelas rotas administrativas e de checkout, processando criptografia local, não expondo segredos.
-As chaves da Pagar.me são salvas com criptografia AES-256-GCM no Supabase (`payment_config`), gerenciadas pelo painel de controle restrito no frontend (`/admin`).
+## 1. Regras de Negócio e Pacotes
 
-## 2. Instalação Local
-1. Clone o repositório.
-2. Rode `npm install --legacy-peer-deps`.
-3. Renomeie `.env.example` para `.env` e preencha suas variáveis.
-4. Rode `npm run dev` para desenvolvimento local.
+Os pacotes e seus valores são centralizados em `packages.config.js`:
 
-## 3. Variáveis de Ambiente Necessárias
-- `VITE_SUPABASE_URL`: A URL pública do seu projeto Supabase.
-- `VITE_SUPABASE_ANON_KEY`: A chave pública do Supabase (safe para o frontend).
-- `SUPABASE_URL`: A mesma URL (uso do backend).
-- `SUPABASE_SERVICE_ROLE_KEY`: A chave secreta/admin do Supabase. NUNCA exponha.
-- `ENCRYPTION_KEY`: Uma string de exatos **32 bytes (caracteres)** para a encriptação. Para gerar no terminal Node: `require('crypto').randomBytes(32).toString('base64').slice(0,32)`
+1. **Confraterniza Grill** (CG02, Outros / Corporativo):
+   - 50 pessoas: R$ 7.000,00
+   - 100 pessoas: R$ 14.000,00
+   - 150 pessoas: R$ 21.000,00
 
-## 4. Configuração do Supabase
-1. Aplique a migration existente em `supabase/migrations/` no editor SQL do Supabase.
-2. Crie seu usuário admin no **Authentication** > **Users**.
-3. Copie o `id` gerado.
-4. Insira um registro na tabela `admins` com esse `id` e seu `email`.
+2. **Casamento Essencial** (CG06, Casamentos):
+   - 50 pessoas: R$ 7.500,00
+   - 100 pessoas: R$ 15.000,00
+   - 150 pessoas: R$ 22.500,00
 
-## 5. Deploy na Hostinger (VPS ou Node.js)
-Este projeto roda em um servidor contínuo Node.js. Planos básicos de hospedagem compartilhada que não suportam Node contínuo NÃO servem; é necessário um plano **VPS** ou **Plano Cloud/Node.js** da Hostinger.
-1. Configure as variáveis de ambiente no painel da Hostinger ou crie o `.env`.
-2. Rode `npm install --production --legacy-peer-deps`.
-3. Rode `npm run build`.
-4. Inicie o servidor com `npm start` (ou use PM2/Phusion Passenger conforme sua hospedagem).
-5. No painel da Pagar.me, cadastre a URL do webhook como `https://SEU_DOMINIO/api/webhook`.
+3. **Celebração Grill** (CG03, Aniversário - Destaque):
+   - 50 pessoas: R$ 8.000,00
+   - 100 pessoas: R$ 16.000,00
+   - 150 pessoas: R$ 24.000,00
 
-## 6. Scripts Disponíveis
-- `npm run dev`: Roda o servidor e o Vite em modo desenvolvimento.
-- `npm run build`: Compila a versão de produção.
-- `npm start`: Inicia o backend já servindo a pasta `dist` na produção.
-- `npm run lint`: Checa tipagem.
+4. **15 Anos Essencial** (CG04, 15 Anos):
+   - 50 pessoas: R$ 8.500,00
+   - 100 pessoas: R$ 17.000,00
+   - 150 pessoas: R$ 25.500,00
+
+## 2. Fluxo de Compra Direto (Sem Carrinho)
+
+1. O cliente visualiza os pacotes e seleciona o número de convidados (50, 100 ou 150) no card ou na página individual do produto.
+2. O valor total em BRL atualiza instantaneamente.
+3. Ao clicar em **Contratar** ou **Ir para o pagamento**, o modal de checkout solicita os dados do titular (nome, e-mail, telefone, CPF/CNPJ) e forma de pagamento (PIX ou Cartão).
+4. O backend valida os dados, calcula o total diretamente do arquivo de configuração `packages.config.js` (nunca confiando em valores vindos do navegador) e gera a sessão de pagamento seguro na Pagar.me.
+
+## 3. Variáveis de Ambiente do Servidor
+
+As credenciais ficam **exclusivamente no servidor**, configuradas no arquivo `.env` (nunca no código e nunca no frontend):
+
+- `PORT`: Porta do servidor HTTP (padrão: 3000).
+- `PAGARME_SECRET_KEY`: Chave secreta da Pagar.me v5 (`sk_...`).
+- `PAGARME_ENVIRONMENT`: `production` ou `sandbox`.
+- `WEBHOOK_SECRET`: (Opcional) Senha de autenticação Basic para os webhooks da Pagar.me.
+
+## 4. Como Executar
+
+### Desenvolvimento Local:
+```bash
+npm install
+npm run dev
+```
+
+### Build e Produção (Hostinger):
+```bash
+npm run build
+npm start
+```
+
+## 5. Estrutura do Projeto
+
+- `packages.config.js`: Arquivo central de preços e nomes de pacotes.
+- `server.js`: Backend Express com cálculo seguro de valores, integração Pagar.me e persistência local de pedidos.
+- `src/`: Aplicação frontend React + Vite + Tailwind CSS.
+  - `src/components/PackagesCatalog.tsx`: Catálogo com seletor de convidados e atualização dinâmica de preço.
+  - `src/components/ProductPage.tsx`: Página de detalhes do pacote com termo de concordância e checkout direto.
+  - `src/components/EventSimulator.tsx`: Simulador "Meu evento".
+  - `src/components/GatewayModal.tsx`: Formulário de dados do titular e redirecionamento Pagar.me.
+  - `src/data/packages.ts`: Catálogo de cardápios, descrições e itens inclusos.

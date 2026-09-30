@@ -1,6 +1,6 @@
-import { PACKAGE_PRICE_CENTS } from '../../package-prices.js';
+import { PACKAGE_PRICE_CENTS } from '../../packages.config.js';
 
-/** Dados editoriais dos produtos. Os preços ficam no arquivo central package-prices.js. */
+/** Dados editoriais dos produtos. Os preços ficam no arquivo central packages.config.js. */
 
 export interface PurchaseOption {
   guests: number;

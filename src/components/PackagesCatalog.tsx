@@ -6,9 +6,10 @@ interface PackagesCatalogProps {
   packages: PackageItem[];
   onOpenDetails: (pkg: PackageItem) => void;
   onSelectOption: (pkg: PackageItem, guests: number) => void;
+  onCheckout?: (pkg: PackageItem, guests: number) => void;
 }
 
-export const PackagesCatalog: React.FC<PackagesCatalogProps> = ({ packages, onOpenDetails, onSelectOption }) => {
+export const PackagesCatalog: React.FC<PackagesCatalogProps> = ({ packages, onOpenDetails, onSelectOption, onCheckout }) => {
   const [activeFilter, setActiveFilter] = useState<'all' | PackageItem['category']>('all');
   const [selectedGuests, setSelectedGuests] = useState<Record<string, number>>({});
   const filteredPackages = packages.filter((pkg) => activeFilter === 'all' || pkg.category === activeFilter);
@@ -58,7 +59,10 @@ export const PackagesCatalog: React.FC<PackagesCatalogProps> = ({ packages, onOp
                     <label className="block text-[10px] uppercase tracking-widest text-gray-500 font-bold" htmlFor={`guests-${pkg.id}`}>Quantidade de convidados</label>
                     <div className="relative"><Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" /><select id={`guests-${pkg.id}`} value={guests} onChange={(event) => setSelectedGuests((current) => ({ ...current, [pkg.id]: Number(event.target.value) }))} className="w-full h-11 pl-10 pr-4 rounded-xl bg-gray-50 border border-gray-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-red-500">{pkg.purchaseOptions.map((option) => <option key={option.guests} value={option.guests}>{option.guests} pessoas</option>)}</select></div>
                     <div className="text-2xl font-bold text-[#e03131] tabular-nums">{formatBRL(selectedOption.price)}</div>
-                    <div className="grid grid-cols-2 gap-2"><button type="button" onClick={() => onOpenDetails(pkg)} className="h-11 rounded-xl border border-gray-200 text-xs font-bold uppercase text-gray-700 hover:bg-gray-50">Detalhes</button><button type="button" onClick={() => onSelectOption(pkg, guests)} className="h-11 rounded-xl bg-[#e03131] text-white text-xs font-bold uppercase hover:bg-[#bc121c]">Meu evento</button></div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button type="button" onClick={() => onOpenDetails(pkg)} className="h-11 rounded-xl border border-gray-200 text-xs font-bold uppercase text-gray-700 hover:bg-gray-50 cursor-pointer">Detalhes</button>
+                      <button type="button" onClick={() => (onCheckout ? onCheckout(pkg, guests) : onSelectOption(pkg, guests))} className="h-11 rounded-xl bg-[#e03131] text-white text-xs font-bold uppercase hover:bg-[#bc121c] cursor-pointer transition-colors">Contratar</button>
+                    </div>
                   </div>
                 </div>
               </article>
