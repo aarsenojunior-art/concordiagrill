@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Lock, ShieldCheck, CreditCard, Receipt, ArrowLeft, CheckCircle, Loader2 } from 'lucide-react';
+import { X, Lock, ShieldCheck, CreditCard, Receipt, ArrowLeft, CheckCircle, Loader2, QrCode } from 'lucide-react';
 import { CartItem } from './CartDrawer';
 import { EXTRA_OPTIONS } from '../data/packages';
 
@@ -23,6 +23,7 @@ export const GatewayModal: React.FC<GatewayModalProps> = ({
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerDocument, setCustomerDocument] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'pix' | 'credit_card'>('pix');
 
   // Order Status State
   const [trackingToken, setTrackingToken] = useState<string | null>(null);
@@ -105,7 +106,8 @@ export const GatewayModal: React.FC<GatewayModalProps> = ({
           customer_name: customerName,
           customer_email: customerEmail,
           customer_phone: customerPhone,
-          customer_document: customerDocument
+          customer_document: customerDocument,
+          payment_method: paymentMethod
         }),
       });
       const result = await response.json().catch(() => ({}));
@@ -204,6 +206,32 @@ export const GatewayModal: React.FC<GatewayModalProps> = ({
                 </div>
               </div>
 
+              <div className="bg-white p-6 sm:p-8 rounded-2xl border border-gray-200 shadow-sm space-y-4 mt-6">
+                <h3 className="font-bold text-lg border-b pb-2 mb-4">Forma de Pagamento</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('pix')}
+                    className={`p-4 rounded-xl border-2 flex flex-col items-center justify-center gap-2 transition-all ${
+                      paymentMethod === 'pix' ? 'border-[#e03131] bg-red-50 text-[#e03131]' : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                    }`}
+                  >
+                    <QrCode className="w-8 h-8" />
+                    <span className="font-bold text-sm">PIX</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('credit_card')}
+                    className={`p-4 rounded-xl border-2 flex flex-col items-center justify-center gap-2 transition-all ${
+                      paymentMethod === 'credit_card' ? 'border-[#e03131] bg-red-50 text-[#e03131]' : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                    }`}
+                  >
+                    <CreditCard className="w-8 h-8" />
+                    <span className="font-bold text-sm">Cartão de Crédito</span>
+                  </button>
+                </div>
+              </div>
+
               <div className="pt-4 space-y-4">
                 <button
                   type="submit"
@@ -212,7 +240,7 @@ export const GatewayModal: React.FC<GatewayModalProps> = ({
                 >
                   <Lock className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-white shrink-0" />
                   <span className="truncate">
-                    {isRedirecting ? 'Abrindo pagamento seguro...' : `Pagar com PIX ou cartão — ${formatBRL(totalCalculated)}`}
+                    {isRedirecting ? 'Abrindo pagamento seguro...' : `Pagar com ${paymentMethod === 'pix' ? 'PIX' : 'Cartão'} — ${formatBRL(totalCalculated)}`}
                   </span>
                 </button>
                 {checkoutError && (

@@ -198,16 +198,20 @@ export default function App() {
     setIsQuoteModalOpen(true);
   };
 
+  const isAdminRoute = currentRoute === 'admin-login' || currentRoute === 'admin';
+
   return (
     <div className="min-h-screen bg-white text-gray-900 flex flex-col selection:bg-[#e03131] selection:text-white">
       {/* Fixed Sticky Header with Notice Banner and Cart Trigger */}
-      <Header
-        onOpenQuoteModal={handleOpenGeneralQuote}
-        onSelectPackageNav={handleScrollToSimulator}
-        onOpenCart={() => window.location.hash = 'carrinho'}
-        cartCount={cartItem ? 1 : 0}
-        onNavigateHome={handleNavigateHomeSection}
-      />
+      {!isAdminRoute && (
+        <Header
+          onOpenQuoteModal={handleOpenGeneralQuote}
+          onSelectPackageNav={handleScrollToSimulator}
+          onOpenCart={() => window.location.hash = 'carrinho'}
+          cartCount={cartItem ? 1 : 0}
+          onNavigateHome={handleNavigateHomeSection}
+        />
+      )}
 
       <main className="w-full flex-1">
         {currentRoute === 'admin-login' ? (
@@ -274,14 +278,16 @@ export default function App() {
       </main>
 
       {/* Institutional Footer */}
-      <Footer onOpenQuoteModal={handleOpenGeneralQuote} />
+      {!isAdminRoute && <Footer onOpenQuoteModal={handleOpenGeneralQuote} />}
 
       {/* Direct Quote / WhatsApp Alignment Modal */}
-      <QuoteModal
-        isOpen={isQuoteModalOpen}
-        onClose={() => setIsQuoteModalOpen(false)}
-        proposalDetails={activeProposalDetails}
-      />
+      {!isAdminRoute && (
+        <QuoteModal
+          isOpen={isQuoteModalOpen}
+          onClose={() => setIsQuoteModalOpen(false)}
+          proposalDetails={activeProposalDetails}
+        />
+      )}
     </div>
   );
 }

@@ -204,7 +204,7 @@ app.post('/api/checkout', async (req, res) => {
     order_code: orderId,
     expires_in: 120,
     max_paid_sessions: 1,
-    payment_settings: { accepted_payment_methods: ['pix', 'credit_card'] },
+    payment_settings: { accepted_payment_methods: body.payment_method ? [body.payment_method] : ['pix', 'credit_card'] },
     cart_settings: { items },
   };
 
